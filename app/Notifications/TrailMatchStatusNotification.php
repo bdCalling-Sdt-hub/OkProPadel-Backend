@@ -14,24 +14,37 @@ class TrailMatchStatusNotification extends Notification
     private $title;
     private $message;
     private $user;
-    public function __construct($title, $message,$user)
+    private $trailMatch;
+    public function __construct($title, $message,$user, $trailMatch)
     {
         $this->title = $title;
         $this->message = $message;
         $this->user = $user;
+        $this->trailMatch = $trailMatch;
     }
 
     public function via($notifiable)
     {
-        return ['database'];
+        return ['database','mail'];
     }
 
+    public function toMail($notifiable)
+    {
+        return (new MailMessage)
+        ->subject($this->title)
+        ->greeting('Hello ' . $this->user->full_name . ',')
+        ->line($this->message)
+        ->line('Date: ' . $this->trailMatch->date)
+        ->line('Time: ' . $this->trailMatch->time)
+        ->line('Thank you for using our application!');
+    }
     public function toArray($notifiable)
     {
         return [
             'title' => $this->title,
             'message' => $this->message,
-            'user'=> $this->user->id
+            'user'=> $this->user->id,
+            'tail_match_id' => $this->trailMatch->id
         ];
     }
 }

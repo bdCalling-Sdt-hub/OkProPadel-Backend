@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AfterMatchQuestionAnswer;
 use App\Models\Feedback;
 use App\Models\Group;
 use App\Models\GroupMember;
@@ -13,6 +14,7 @@ use App\Models\PadelMatchMember;
 use App\Models\PadelMatchMemberHistory;
 use App\Models\PrivateMessage;
 use App\Models\User;
+use App\Notifications\EndMatchNotification;
 use App\Notifications\GroupInvitationNotification;
 use App\Notifications\GroupMessageNotification;
 use App\Notifications\JoinRequestAcceptedNotification;
@@ -41,6 +43,39 @@ class MessageController extends Controller
     {
         return $this->padelMatchController->members();
     }
+    public function blockPrivateMessage(Request $request)
+    {
+        $request->validate([
+            'message_id' => 'required|integer|exists:private_messages,id',
+        ]);
+        $message = PrivateMessage::find($request->message_id);
+        if (!$message) {
+            return response()->json(['error' => 'Message not found.'], 404);
+        }
+        if ($message->sender_id !== Auth::id() && $message->recipient_id !== Auth::id()) {
+            return response()->json(['error' => 'You do not have permission to block this message.'], 403);
+        }
+        $message->block = true;
+        $message->save();
+        return response()->json(['message' => 'Message blocked successfully.']);
+    }
+    public function unblockPrivateMessage(Request $request)
+    {
+        $request->validate([
+            'message_id' => 'required|integer|exists:private_messages,id',
+        ]);
+        $message = PrivateMessage::find($request->message_id);
+
+        if (!$message) {
+            return response()->json(['error' => 'Message not found.'], 404);
+        }
+        if ($message->sender_id !== Auth::id() && $message->recipient_id !== Auth::id()) {
+            return response()->json(['error' => 'You do not have permission to unblock this message.'], 403);
+        }
+        $message->block = false;
+        $message->save();
+        return response()->json(['message' => 'Message unblocked successfully.']);
+    }
     public function startGame(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -65,6 +100,20 @@ class MessageController extends Controller
         $padelMatch->status = 'started';
         $padelMatch->save();
 
+        if ($padelMatch->status === 'started') {
+            $updates = AfterMatchQuestionAnswer::where('match_id', $padelMatch->id)
+                ->where('questionnaire_id', null)
+                ->where('answer', null)
+                ->get();
+
+            $staticAnswer = 'lowser person';
+            foreach ($updates as $update) {
+                $update->questionnaire_id = json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+                $update->answer = json_encode($staticAnswer);
+                $update->save();
+            }
+        }
+
         return $this->sendResponse([], 'Game started successfully.');
     }
     public function endGame(Request $request)
@@ -82,12 +131,12 @@ class MessageController extends Controller
         if ($padelMatch->status !== 'started') {
             return $this->sendError('Match is not currently in progress.', [], 400);
         }
-        $padelMatch->status = 'ended';
-        $padelMatch->save();
         $members = PadelMatchMember::where('padel_match_id', $padelMatch->id)->get();
         if ($members->isEmpty()) {
             return $this->sendError('No members found for this match.', [], 404);
         }
+        $padelMatch->status = 'ended';
+        $padelMatch->save();
         foreach ($members as $member) {
             $user = User::find($member->user_id);
             if ($user) {
@@ -96,13 +145,18 @@ class MessageController extends Controller
                     'padel_match_id' => $padelMatch->id,
                     'user_id' => $user->id,
                 ]);
-
                 Feedback::create([
                     'questionnaire_id' =>9,
                     'user_id' => $user->id,
                     'match_id' => $padelMatch->id,
                 ]);
-
+                AfterMatchQuestionAnswer::create([
+                    'match_id' => $padelMatch->id,
+                    'user_id'=> $user->id,
+                    'questionnaire_id'=> json_encode([1,2,3,4,5,6,7,8,9]),
+                    'answer'=> null,
+                ]);
+                $user->notify( new EndMatchNotification($padelMatch));
             }
         }
         return $this->sendResponse([], 'Game ended successfully.');
@@ -320,6 +374,21 @@ class MessageController extends Controller
         if (!$recipient) {
             return $this->sendError('Recipient user not found.', [], 404);
         }
+        $blockCheck = PrivateMessage::where(function ($query) use ($userId) {
+            $query->where('sender_id', Auth::id())
+                  ->where('recipient_id', $userId)
+                  ->where('block', true);
+        })
+        ->orWhere(function ($query) use ($userId) {
+            $query->where('sender_id', $userId)
+                  ->where('recipient_id', Auth::id())
+                  ->where('block', true);
+        })
+        ->exists();
+
+        if ($blockCheck) {
+            return $this->sendError('You cannot send messages to this user or blocked.', [], 403);
+        }
         $imagePaths = [];
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
@@ -371,14 +440,14 @@ class MessageController extends Controller
             return $this->sendError('Match not found.', [], 404);
         }
         $members = $request->user_ids;
-        if (!in_array(auth()->user()->id, $members)) {
+        $authId = auth()->user()->id;
+        if (!in_array($authId, $members)) {
             $members[] = auth()->user()->id;
         }
-        if (count($members) !== 4) {
+        if (count($members) !== 4 && array_unique($members)) {
             return $this->sendError('You must select exactly 3 members for the match..', [], 400);
         }
-        $authId = auth()->user()->id;
-        $existingMembers = PadelMatchMember::where('padel_match_id', $padelMatch->id)->delete();
+        PadelMatchMember::where('padel_match_id', $padelMatch->id)->delete();
         foreach ($members as $userId) {
                 PadelMatchMember::create([
                     'padel_match_id' => $padelMatch->id,
@@ -422,26 +491,30 @@ class MessageController extends Controller
     }
     public function getGroupMember($matchId)
     {
-        $group = Group::find($matchId);
-        if (!$group) {
+        $padelMatch = PadelMatch::where('id', $matchId)->first();
+        if (!$padelMatch) {
             return $this->sendError('Match not found.', [], 404);
         }
-        $joinMembers = $group->members()->count();
-        $members = $group->members()->orderBy('id', 'asc')->where('user_id','!=',auth()->user()->id)->where('status',1)->get()->map(function ($member) {
-
-            return [
-                'user_id'    => $member->id,
-                'full_name'  => $member->full_name,
-                'user_name'  => $member->user_name,
-                'level'      => $member->level,
+        $members = PadelMatchMember::where('padel_match_id',$matchId)->get();
+        if (!$members) {
+            $this->sendError('No members found.', [], 404);
+        }
+        $formattedMembers = $members->map(function ($member) {
+            return[
+                'user_id'    => $member->user->id,
+                'full_name'  => $member->user->full_name,
+                'user_name'  => $member->user->user_name,
+                'level'      => $member->user->level,
+                'is_approved' => $member->isApproved ?? '',
                 'level_name' => $member->level_name,
                 'image'      => $member->image ? url('Profile/' . $member->image) : url('avatar/',$member->image),
             ];
+
         });
         if ($members->isEmpty()) {
             return $this->sendError('No members found for this match.', [], 404);
         }
-        return $this->sendResponse($members, 'Group members retrieved successfully.');
+        return $this->sendResponse($formattedMembers, 'Group members retrieved successfully.');
     }
     public function getUserGroup()
     {

@@ -36,7 +36,6 @@ class QuestionController extends Controller
                     'options' => json_decode($question->options, true),
                 ];
             });
-
             $question9WithFeedback = [
                 'id' => $question9->id,
                 'question' => $question9->question,
@@ -72,7 +71,6 @@ class QuestionController extends Controller
         }
     }
 
-
     public function afterMatchQuestion(Request $request, $matchId)
     {
         $match = PadelMatch::find($matchId);
@@ -84,19 +82,25 @@ class QuestionController extends Controller
             'answers.*.question_id' => 'required|integer|exists:questionnaires,id',
             'answers.*.answer' => 'required',
         ]);
-
-        foreach ($validatedData['answers'] as $answer) {
-            $answerValue = is_array($answer['answer']) ? json_encode($answer['answer']) : $answer['answer'];
-            AfterMatchQuestionAnswer::create([
-                'match_id' => $matchId,
-                'questionnaire_id' => $answer['question_id'],
-                'answer' => $answerValue,
-            ]);
+        $userId = $request->user()->id;
+        $updates = AfterMatchQuestionAnswer::where('match_id', $match->id)
+            ->where('answer', null)
+            ->where('user_id', $userId)
+            ->orderBy('id', 'desc')
+            ->take(4)
+            ->get();
+        if($updates){
+            $answers = array_column($validatedData['answers'], 'answer');
+            foreach ($updates as $update) {
+                $update->update([
+                    'answer' => json_encode($answers),
+                ]);
+            }
+            return $this->sendResponse('Successfully stored.', []);
+        }else{
+            return $this->sendError('Yor are not eligible for answer.');
         }
-        return $this->sendResponse([],'Answers stored successfully!');
     }
-
-
     public function getQuestion()
     {
         $questions = Question::orderBy("id", "desc")->get();

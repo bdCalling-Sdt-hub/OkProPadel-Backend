@@ -31,7 +31,13 @@ class PadelMatch extends Model
     {
         return $this->belongsToMany(User::class, 'padel_match_user', 'padel_match_id', 'user_id');
     }
-    
+    public function memberHistories()
+    {
+        return $this->hasMany(PadelMatchMemberHistory::class, 'padel_match_id');
+    }
+
+
+
 
 
 }

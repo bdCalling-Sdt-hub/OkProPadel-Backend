@@ -18,4 +18,5 @@ class Questionnaire extends Model
     {
         return $this->hasMany(Feedback::class);
     }
+
 }

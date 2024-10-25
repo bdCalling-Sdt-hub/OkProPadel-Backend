@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClubController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\FaqController;
+use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\NotificationController;
@@ -52,6 +53,8 @@ Route::group(['middleware' => ['auth:sanctum'], 'controller' => ProfileControlle
     Route::put('accept-trail-match', 'acceptTrailMatch');
     Route::put('deny-trail-match', 'denyTrailMatch');
     Route::get('trail-match-status', 'TrailMatchStatus');
+    Route::post('trail-match-start/{id}', 'StartTrailMatch');
+
 });
 Route::group(['middleware' => ['auth:sanctum'], 'controller' => UserController::class], function () {
     Route::put('language', 'updateLanguage'); /* USE ADMIN AND USER */
@@ -87,7 +90,7 @@ Route::group(['middleware' => ['auth:sanctum'], 'controller' => MessageControlle
     Route::get('search-member', 'searchMember');
     Route::get('members', 'members');
     Route::post('group-invite/{groupId}',  'inviteMembers');
-    Route::post('group-invitation/accept/{invitationId}', 'acceptInvitation');
+    Route::post('group-invitation-accept/{invitationId}', 'acceptInvitation');
     Route::get('get-group-member/{matchId}', 'getGroupMember');
     Route::post('add-member/{matchId}', 'PadelMatchMemberAdd');
     Route::put('accept-padel-match/{matchId}','acceptPadelMatch');
@@ -105,8 +108,8 @@ Route::group(['middleware' => ['auth:sanctum'], 'controller' => MessageControlle
     Route::get('get-private-message', 'getPrivateMessage');
     Route::post('private-message/read/{messageId}', 'PrivateMessageAsRead');
 
-    // Route::post('block-private-message/{userId}', 'BlockPrivateMessage');
-    // Route::post('unblock-private-message/{userId}', 'UnblockPrivateMessage');
+    Route::post('block-private-message', 'BlockPrivateMessage');
+    Route::post('unblock-private-message', 'UnblockPrivateMessage');
 });
 Route::group(['middleware' => ['auth:sanctum'], 'controller' => HomeController::class], function () {
     Route::get('viewMatch','viewMatch');
@@ -158,14 +161,21 @@ Route::group(['middleware' => ['auth:sanctum'], 'controller' => QuestionControll
     // after match questions user
     Route::get('/get-after-match-questionnaire/{matchId}',  'getAfterMatchQuestion');
     Route::post('/feedback', 'storeFeedback');
-    Route::post('/after-match-question/{matchId}', 'afterMatchQuestion');
+    Route::post('/after-match-question/{matchId}', 'afterMatchQuestion'); //user use
+    Route::get('/match-member/{matchId}', 'matchMember'); //user use
+
 });
 Route::group(['middleware' => ['auth:sanctum'], 'controller' => TrailMatchController::class], function () {
     Route::get('request-match', 'requestMatch');
     Route::post('setup-trail-match', 'setUpTrailMatch');
 });
+Route::group(['middleware' => ['auth:sanctum'], 'controller' => FeedbackController::class], function () {
+    Route::get('normal-match-feedback', 'normalMatchFeedback');
+    Route::get('view-normal-match-feedback/{matchId}/{userId}', 'normalMatchView');
+    Route::get('trail-match-feedback', 'trailMatchFeedback');
+});
 Route::group(['middleware' => ['auth:sanctum'], 'controller' => TrailMatchQuestionController::class], function () {
-    Route::get('trail-match-questions', 'getTrailMatchQuestion');
+    Route::get('trail-match-questions', 'getTrailMatchQuestion'); //use admin and user
     Route::post('trail-match-question', 'trailMatchQuestion');
     Route::put('trail-match-question-update/{id}', 'updateTrailMatchQuestion');
     Route::delete('trail-match-question-delete/{id}', 'deleteTrailMatchQuesiton');

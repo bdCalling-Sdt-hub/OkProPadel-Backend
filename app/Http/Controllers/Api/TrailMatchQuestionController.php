@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AnswerTrailMatchQuestion;
 use App\Models\TrailMatchQuestion;
+use Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -12,7 +13,7 @@ class TrailMatchQuestionController extends Controller
 {
     public function getTrailMatchQuestion()
     {
-        $questions = TrailMatchQuestion::orderBy("id", "desc")->paginate(1);
+        $questions = TrailMatchQuestion::orderBy("id", "desc")->get();
         if ($questions->isEmpty()) {
             return response()->json([
                 "status"=> "error",
@@ -31,11 +32,11 @@ class TrailMatchQuestionController extends Controller
         });
 
         $response = [
-            'tittle' => '#Question ' . $questions->currentPage().' of '.$questions->total() ,
-            'current_page' => $questions->currentPage(),
-            'total_pages' => $questions->lastPage(),
-            'total_questions' => $questions->total(),
-            'per_page' => $questions->perPage(),
+            // 'tittle' => '#Question ' . $questions->currentPage().' of '.$questions->total() ,
+            // 'current_page' => $questions->currentPage(),
+            // 'total_pages' => $questions->lastPage(),
+            // 'total_questions' => $questions->total(),
+            // 'per_page' => $questions->perPage(),
             'data' => $formattedQuestions,
         ];
 
@@ -155,35 +156,27 @@ class TrailMatchQuestionController extends Controller
     public function answerTrailMatchQuestion(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'trail_match_question_id' => 'required|exists:trail_match_questions,id',
-            'answer' => 'required',
-            'trail_match_id'=>  'required|exists:trail_matches,id',
+            'trail_match_id' => 'required|exists:trail_matches,id',
+            'answers' => 'required|array',
+            'answers.*.trail_match_question_id' => 'required|exists:trail_match_questions,id',
+            'answers.*.answer' => 'required|string',
+            'answers.*.value' => 'required|integer',
         ]);
-
         if ($validator->fails()) {
             return $this->sendError("Validation Error:", $validator->errors());
         }
-
-        $userId = $request->user()->id;
-        $existingAnswer = AnswerTrailMatchQuestion::where('user_id', $userId)
-            ->where('trail_match_question_id', $request->trail_match_question_id)
-            ->first();
-
-        if ($existingAnswer) {
-            return $this->sendError('You have already answered this question.');
+        try {
+            foreach ($request->answers as $answerData) {
+                $answer = new AnswerTrailMatchQuestion();
+                $answer->trail_match_question_id = $answerData['trail_match_question_id'];
+                $answer->user_id = auth()->user()->id;
+                $answer->answer = $answerData['answer'];
+                $answer->trail_match_id = $request->trail_match_id;
+                $answer->save();
+            }
+            return $this->sendResponse([], "Answers stored successfully.");
+        } catch (\Exception $e) {
+            return $this->sendError("An error occurred while storing answers. Please try again later.");
         }
-        $answer = new AnswerTrailMatchQuestion();
-        $answer->trail_match_question_id = $request->trail_match_question_id;
-        $answer->user_id = $userId;
-        $answer->answer = $request->answer;
-        $answer->trail_match_id= $request->trail_match_id;
-        $answer->save();
-
-        $totalQuestions = TrailMatchQuestion::count();
-        $userAnswers = AnswerTrailMatchQuestion::where('user_id', $userId)->get();
-        if ($userAnswers->count() === $totalQuestions) {
-            return $this->sendResponse([], 'Your are successfully submitted.');
-        }
-        return $this->sendResponse($answer, "Answer stored successfully.");
     }
 }

@@ -63,13 +63,11 @@ class TrailMatchController extends Controller
             'time' => $request->time,
             'date' => $request->date,
         ]);
-        // $users = $request->volunteer_ids ?? [];
-        // foreach ($users as $userId) {
-        //     $userModel = Volunteer::find($userId);
-        //     if ($userModel) {
-        //         $userModel->notify(new TrailMatchCreatedNotification($trailMatch));
-        //     }
-        // }
+        $user = User::find($userId);
+        if($user){
+            $user->notify(new TrailMatchCreatedNotification($trailMatch, $user));
+        }
+
         return $this->sendResponse($trailMatch, 'Trail match set up successfully.');
     }
 }

@@ -12,30 +12,23 @@ class TrailMatchCreatedNotification extends Notification
     use Queueable;
 
     protected $trailMatch;
+    protected $user;
 
-    public function __construct($trailMatch)
+    public function __construct($trailMatch, $user)
     {
         $this->trailMatch = $trailMatch;
+        $this->user = $user;
     }
     public function via($notifiable)
     {
-        return [ 'database','mail'];
-    }
-    public function toMail($notifiable)
-    {
-        return (new MailMessage)
-            ->subject('New Trail Match Created')
-            ->line("{$this->trailMatch->volunteer->full_name}")
-            ->line('A new trail match has been created.')
-            ->line("Date: {$this->trailMatch->date}")
-            ->line("Time: {$this->trailMatch->time}")
-            ->line('Thank you.');
+        return [ 'database'];
     }
     public function toArray($notifiable)
     {
         return [
             'trail_match_id' => $this->trailMatch->id,
-            'message' => 'A new trail match has been created.',
+            'user_id' => $this->user->id,
+            'message' => 'Welcome,Your trail match has been created.',
         ];
     }
 }

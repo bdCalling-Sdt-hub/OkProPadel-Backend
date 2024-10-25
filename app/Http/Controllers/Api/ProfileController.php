@@ -20,6 +20,32 @@ use Illuminate\Support\Facades\Validator;
 
 class ProfileController extends Controller
 {
+    public function StartTrailMatch(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'game_status' => 'required|string|max:255', // Adjust as needed
+        ]);
+        if ($validator->fails()) {
+            return $this->sendError($validator->errors()->first());
+        }
+        $tarilmatch = TrailMatch::find($id);
+        if(!$tarilmatch){
+            return $this->sendError('Not foun trail match.');
+        }
+        $tarilmatch->game_status = $request->game_status;
+        $tarilmatch->save();
+
+        return $this->sendResponse([], "Trail Match started successfully");
+    }
+    public function getGameStatusTrailMatch( $id)
+    {
+
+        $tarilmatch = TrailMatch::find($id);
+        if(!$tarilmatch){
+            return $this->sendError('Not foun trail match.');
+        }
+        return $this->sendResponse($tarilmatch->game_status, "Trail Match started successfully");
+    }
     public function TrailMatchStatus(Request $request)
     {
         $request->validate([
@@ -33,7 +59,11 @@ class ProfileController extends Controller
             $trailMatch->status = false;
             $trailMatch->save();
         }
-        return $this->sendResponse(['status'=>$trailMatch->status],'Status get successfully.');
+        $status=[
+            'status'=> $trailMatch->status,
+            'trailMatchId'=> $trailMatch->id,
+        ];
+        return $this->sendResponse([$status],'Status get successfully.');
     }
     public function acceptTrailMatch(Request $request)
     {
@@ -41,10 +71,10 @@ class ProfileController extends Controller
             'trail_match_id' => 'required|exists:trail_matches,id',
         ]);
         $trailMatch = TrailMatch::find($request->trail_match_id);
-        $trailMatch->status = true;
+        $trailMatch->status = 1;
         $trailMatch->save();
         $volunteerIds = json_decode($trailMatch->volunteer_id, true);
-        $this->notifyUsers($trailMatch->user_id, $volunteerIds, 'Trail Match Accepted', "{$trailMatch->user->full_name} has accepted the trail match.");
+        $this->notifyUsers($trailMatch, $volunteerIds, 'Trail Match Accepted', "{$trailMatch->user->full_name} has accepted the trail match.");
         return $this->sendResponse([], 'Trail match accepted successfully.');
     }
     public function denyTrailMatch(Request $request)
@@ -56,19 +86,20 @@ class ProfileController extends Controller
         $trailMatch->status = false;
         $trailMatch->save();
         $volunteerIds = json_decode($trailMatch->volunteer_id, true);
-        $this->notifyUsers($trailMatch->user_id, $volunteerIds, 'Trail Match Denied', "{$trailMatch->user->full_name} has denied the trail match.");
+        $this->notifyUsers($trailMatch, $volunteerIds, 'Trail Match Denied', "{$trailMatch->user->full_name} has denied the trail match.");
         return $this->sendResponse([], 'Trail match denied successfully.');
     }
-    private function notifyUsers($userId, $volunteerIds, $title, $message)
+    private function notifyUsers($trailMatch, $volunteerIds, $title, $message)
     {
-        $user = User::find($userId);
-        if ($user) {
-            $user->notify(new TrailMatchStatusNotification($title, $message,$user));
+        $user = User::find($trailMatch->user_id);
+        $admin = User::where('role','ADMIN')->first();
+        if ($admin) {
+            $admin->notify(new TrailMatchStatusNotification($title, $message,$user,$trailMatch));
         }
         if (is_array($volunteerIds) && count($volunteerIds) > 0) {
             $volunteers = Volunteer::whereIn('id', $volunteerIds)->get();
             foreach ($volunteers as $volunteer) {
-                $volunteer->notify(new TrailMatchStatusNotification($title, $message, $user));
+                $volunteer->notify(new TrailMatchStatusNotification($title, $message, $volunteer,$trailMatch));
             }
         }
     }
