@@ -46,7 +46,7 @@ class QuestionController extends Controller
                         'user' => [
                             'id' => $feedback->user->id,
                             'full_name' => $feedback->user->full_name,
-                            'user_name' => $feedback->user->user_name,
+                            // 'user_name' => $feedback->user->user_name,
                             'email' => $feedback->user->email,
                             'level' => $feedback->user->level,
                             'level_name' => $feedback->user->level_name,

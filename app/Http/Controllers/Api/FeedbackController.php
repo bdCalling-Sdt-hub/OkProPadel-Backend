@@ -34,7 +34,7 @@ class FeedbackController extends Controller
                     'match_id' => $member->match_id,
                     'user_id' => $member->user->id ?? 'N/A',
                     'full_name' => $member->user->full_name ?? 'N/A',
-                    'user_name' => strtolower($member->user->user_name ?? 'N/A'),
+                    // 'user_name' => strtolower($member->user->user_name ?? 'N/A'),
                     'email' => $member->user->email ?? 'N/A',
                     'matches_played' => $member->user->matches_played ?? 'N/A',
                     'level' => $member->user->level ?? 'N/A',

@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
        User::create([
         "id"=> 1,
         "full_name"=> "Admin",
-        "user_name"=> "admin",
+        // "user_name"=> "admin",
         "email"=> "admin@gmail.com",
         "password"=> Hash::make("12345678"),
         "role"=> "ADMIN",
@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
     $users = [
             [
                 "full_name" => "user",
-                "user_name" => "user",
+                // "user_name" => "user",
                 "email" => "user@gmail.com",
                 "password" => Hash::make("12345678"),
                 "role" => "MEMBER",
@@ -40,7 +40,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 "full_name" => "user 1",
-                "user_name" => "user_1",
+                // "user_name" => "user_1",
                 "email" => "user1@gmail.com",
                 "password" => Hash::make("12345678"),
                 "role" => "MEMBER",
@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 "full_name" => "user 2",
-                "user_name" => "user_2",
+                // "user_name" => "user_2",
                 "email" => "user2@gmail.com",
                 "password" => Hash::make("12345678"),
                 "role" => "MEMBER",
@@ -60,7 +60,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 "full_name" => "user 3",
-                "user_name" => "user_3",
+                // "user_name" => "user_3",
                 "email" => "user3@gmail.com",
                 "password" => Hash::make("12345678"),
                 "role" => "MEMBER",
@@ -70,7 +70,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 "full_name" => "user 4",
-                "user_name" => "user_4",
+                // "user_name" => "user_4",
                 "email" => "user4@gmail.com",
                 "password" => Hash::make("12345678"),
                 "role" => "MEMBER",
@@ -80,7 +80,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 "full_name" => "user 5",
-                "user_name" => "user_5",
+                // "user_name" => "user_5",
                 "email" => "user5@gmail.com",
                 "password" => Hash::make("12345678"),
                 "role" => "MEMBER",
@@ -90,7 +90,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 "full_name" => "user 6",
-                "user_name" => "user_6",
+                // "user_name" => "user_6",
                 "email" => "user6@gmail.com",
                 "password" => Hash::make("12345678"),
                 "role" => "MEMBER",
@@ -100,7 +100,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 "full_name" => "user 7",
-                "user_name" => "user_7",
+                // "user_name" => "user_7",
                 "email" => "user7@gmail.com",
                 "password" => Hash::make("12345678"),
                 "role" => "MEMBER",
@@ -110,7 +110,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 "full_name" => "user 8",
-                "user_name" => "user_8",
+                // "user_name" => "user_8",
                 "email" => "user8@gmail.com",
                 "password" => Hash::make("12345678"),
                 "role" => "MEMBER",
@@ -120,7 +120,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 "full_name" => "user 9",
-                "user_name" => "user_9",
+                // "user_name" => "user_9",
                 "email" => "user9@gmail.com",
                 "password" => Hash::make("12345678"),
                 "role" => "MEMBER",

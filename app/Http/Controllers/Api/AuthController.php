@@ -14,7 +14,7 @@ use Mail;
 
 class AuthController extends Controller
 {
- 
+
     public function getUserName(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -28,7 +28,7 @@ class AuthController extends Controller
         ->map(function ($member) {
             return [
                 'user_id'   => $member->id,
-                'user_name' => $member->user_name,
+                // 'user_name' => $member->user_name,
             ];
         });
         if ($members->isEmpty()) {
@@ -76,7 +76,7 @@ class AuthController extends Controller
         }
         $validator = Validator::make($request->all(), [
             'full_name'  => 'required|string|max:255',
-            'user_name'  => 'required|string|max:255|unique:users,user_name,except,id',
+            // 'user_name'  => 'required|string|max:255|unique:users,user_name,except,id',
             'email'      => 'required|email|unique:users,email',
             'password'   => 'required|min:8|max:60',
             'role'       => ['required', Rule::in(['ADMIN', 'MEMBER'])],

@@ -213,7 +213,7 @@ class MessageController extends Controller
             return [
                 'user_id'    => $member->id,
                 'full_name'  => $member->full_name,
-                'user_name'  => $member->user_name,
+                // 'user_name'  => $member->user_name,
                 'image'      => $member->image ? url('Profile'. $member->image) : null,
                 'is_approved'=> $member->isApproved ? true : false,
             ];
@@ -256,7 +256,7 @@ class MessageController extends Controller
             return [
                 'user_id' => $user->id,
                 'full_name' => $user->full_name,
-                'user_name' => $user->user_name,
+                // 'user_name' => $user->user_name,
                 'email' => $user->email,
                 'level' => $user->level,
                 'matches_played' => $user->matches_played,
@@ -316,7 +316,7 @@ class MessageController extends Controller
                 'sender' => [
                     'id' => $message->sender->id,
                     'rull_name' => $message->sender->full_name,
-                    'user_name' => $message->sender->user_name,
+                    // 'user_name' => $message->sender->user_name,
                     'email' => $message->sender->email,
                     'image' => $message->sender->image ? url('Profile/'. $message->sender->image) : url('avatar/',$message->sender->image),
                 ],
@@ -503,7 +503,7 @@ class MessageController extends Controller
             return[
                 'user_id'    => $member->user->id,
                 'full_name'  => $member->user->full_name,
-                'user_name'  => $member->user->user_name,
+                // 'user_name'  => $member->user->user_name,
                 'level'      => $member->user->level,
                 'is_approved' => $member->isApproved ?? '',
                 'level_name' => $member->level_name,
@@ -535,7 +535,7 @@ class MessageController extends Controller
                 'creator' => [
                     'id' => $group->creator->id,
                     'full_name' => $group->creator->full_name,
-                    'user_name' => $group->creator->user_name,
+                    // 'user_name' => $group->creator->user_name,
                 ],
                 'last_message' => $lastMessage ? [
                     'message' => $lastMessage->message,

@@ -49,7 +49,7 @@ class HomeController extends Controller
                 'creator' => [
                     'id' => $creator->id,
                     'full_name' => $creator->full_name,
-                    'user_name' => $creator->user_name,
+                    // 'user_name' => $creator->user_name,
                     'matches_played' => $creator->matches_played,
                     'image' => url('Profile', $creator->image),
                     'level' => $creator->level,
@@ -116,7 +116,7 @@ class HomeController extends Controller
                 'creator' => [
                     'id' => $match->creator->id,
                     'full_name' => $match->creator->full_name,
-                    'user_name' => $match->creator->user_name,
+                    // 'user_name' => $match->creator->user_name,
                     'matches_played' => $match->creator->matches_played,
                     'image' => url('Profile/',$match->creator->image),
                 ],
@@ -243,7 +243,7 @@ class HomeController extends Controller
                 'creator' => [
                     'id' => $match->creator->id,
                     'full_name' => $match->creator->full_name,
-                    'user_name' => $match->creator->user_name,
+                    // 'user_name' => $match->creator->user_name,
                     'matches_played' => $match->creator->matches_played,
                     'image' => url('Profile/',$match->creator->image),
                 ],
