@@ -18,24 +18,27 @@ class UserManagementController extends Controller
 
         $query = $request->query('query'); // Retrieve the search query from the request
 
-        $users = User::Where('email', 'LIKE', "%{$query}%")
-                    ->get();
+        $users = User::where('email', 'LIKE', "%{$query}%")->get();
 
         if ($users->isEmpty()) {
             return $this->sendError('No users found.', [], 404);
         }
+
         $formattedUsers = $users->map(function ($user) {
             return [
                 'id' => $user->id,
                 'full_name' => $user->full_name,
                 'email' => $user->email,
-                'image' => $user->image ? url('Profile/', $user->image) : null,
+                'image' => $user->image
+                    ? url('Profile/' . $user->image)
+                    : url('avatar/profile.jpg'),
                 'level' => $user->level,
             ];
         });
 
-        return $this->sendResponse($formattedUsers, 'Users retrieved successfully.');
+        return $this->sendResponse(['users' => $formattedUsers], 'Users retrieved successfully.');
     }
+
 
     public function userDetails($userId)
     {
@@ -50,7 +53,7 @@ class UserManagementController extends Controller
             'email' => $user->email,
             'location'=> $user->location,
             'matches_played'=> $user->matches_played,
-            'image' => $user->image ? url('Profile/', $user->image) : null,
+            'image' => $user->image ? url('Profile/', $user->image) :  url('avatar','profile.jpg'),
             'level' => $user->level,
             'level_name' => $user->level_name,
             'points' => $user->points,
@@ -70,9 +73,9 @@ class UserManagementController extends Controller
         if (auth()->user()->role !== 'ADMIN') {
             return $this->sendError("Unauthorized action.", [], 403);
         }
-        PadelMatch::where('creator_id', $userId)->delete();
         $user->delete();
-        return $this->sendError("Usser successfully deleted.");
+        PadelMatch::where('creator_id', $userId)->delete();
+        return $this->sendResponse([],"Usser successfully deleted.");
     }
     public function changeRole(Request $request,$userId)
     {
@@ -88,7 +91,6 @@ class UserManagementController extends Controller
         }
         $user->status = $request->status;
         $user->save();
-
         return $this->sendResponse($user, 'User status updated successfully.');
 
     }
@@ -96,20 +98,17 @@ class UserManagementController extends Controller
     {
         try {
             $users = User::orderBy("created_at", "desc")->paginate(10);
-
             $formattedUsers = $users->map(function ($user) {
                 return [
                     'id' => $user->id,
                     'full_name' => $user->full_name,
-                    'user_name' => $user->user_name,
                     'email' => $user->email,
                     'location'=> $user->location,
                     'level'=> $user->level,
                     'status'=> $user->status,
-                    'image' => $user->image ? url('Profile/'. $user->image) : null,
+                    'image' => $user->image ? url('Profile/'. $user->image) : url('avatar','profile.jpg'),
                 ];
             });
-
             $result = [
                 'users' => $formattedUsers,
                 'meta' => [

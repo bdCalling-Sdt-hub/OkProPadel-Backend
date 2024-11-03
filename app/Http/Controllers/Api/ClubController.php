@@ -37,7 +37,7 @@ class ClubController extends Controller
                 'longitude'  => $club->longitude,
                 'website'    => $club->website,
                 'status'     => $club->status,
-                'banners'    => $banners,
+                'banners'    => $banners ? $banners : url('avatar','profile.jpg'),
                 'activities' => json_decode($club->activities) ?? [],
                 'created_at' => $club->created_at->format('Y-m-d H:i:s'),
                 'updated_at' => $club->updated_at->format('Y-m-d H:i:s'),
@@ -63,8 +63,8 @@ class ClubController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'banners'    => 'required|array',
-            'banners.*'  => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            // 'banners'    => 'required|array',
+            // 'banners.*'  => 'image|mimes:jpeg,png,jpg,gif|max:2048',
             'description'=> 'nullable|string|max:255',
             'activities' => 'nullable|array',
             'club_name'  => 'required|string|unique:clubs,club_name',
@@ -128,8 +128,8 @@ class ClubController extends Controller
             return $this->sendError('Club not found.', [], 404);
         }
         $validator = Validator::make($request->all(), [
-            'banners'    => 'nullable|array',
-            'banners.*'  => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            // 'banners'    => 'nullable|array',
+            // 'banners.*'  => 'image|mimes:jpeg,png,jpg,gif|max:2048',
             'description'=> 'nullable|string|max:255',
             'activities' => 'nullable|array',
             'club_name'  => 'required|string|unique:clubs,club_name,' . $id, // Exclude current club's ID
@@ -149,7 +149,7 @@ class ClubController extends Controller
                 $banner->move(public_path('uploads/banners'), $imageName);
                 $imagePaths[] = $imageName;
             }
-            $club->banners = json_encode($imagePaths);
+            $club->banners = json_encode($imagePaths) ?? $club->banners;
         }
         $activities = $request->activities;
         $client = new Client();
@@ -184,7 +184,7 @@ class ClubController extends Controller
         }
     }
 
-    public function deleteClub($id)
+    public function delete($id)
     {
         try {
             $club = Club::find($id);

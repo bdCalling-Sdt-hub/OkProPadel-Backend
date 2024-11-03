@@ -9,7 +9,7 @@ class TrailMatch extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'user_id', 'volunteer_id', 'time', 'date','club_id','status',
+        'user_id', 'volunteer_id', 'time', 'date','club_id','status','request_id',
     ];
 
     public function user()

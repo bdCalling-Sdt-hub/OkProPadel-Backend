@@ -9,16 +9,10 @@ const io = new Server(server, {
         origin: '*',
     },
 });
+const groups = {};
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    socket.on('group-message', ({senderId,message }) => {
-        console.log(`Group message : ${message}`);
-        io.to(senderId).emit('group-message', {
-            senderId: socket.id,
-            message,
-        });
-    });
     socket.on('private-message', ({ recipientId, message }) => {
         console.log(` User ${recipientId}: ${message}`);
         io.to(recipientId).emit('private-message', {
@@ -26,6 +20,18 @@ io.on('connection', (socket) => {
             message,
         });
     });
+    socket.on('join_group', ({ userId, groupId }) => {
+        socket.join(groupId);
+        if (!groups[groupId]) groups[groupId] = [];
+        groups[groupId].push(userId);
+        console.log(`User ${userId} joined group ${groupId}`);
+      });
+
+      // Handle group message
+      socket.on('group_message', ({ groupId, senderId, message }) => {
+        io.to(groupId).emit('group_message', { senderId, message });
+        console.log(`Message in group ${groupId} from ${senderId}: ${message}`);
+      });
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
     });

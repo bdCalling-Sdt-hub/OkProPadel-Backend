@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Group;
 use App\Models\PadelMatch;
 use App\Models\User;
+use App\Notifications\PadelMatchCreatedNotification;
 use Auth;
 use DB;
 use Illuminate\Http\Request;
@@ -41,7 +42,7 @@ class PadelMatchController extends Controller
             $latitude = $user->latitude;
             $longitude = $user->longitude;
             $members = User::selectRaw("
-                    id, full_name, user_name, level, level_name, image, latitude, longitude,
+                    id, full_name, level, level_name, image, latitude, longitude,
                     (6371 * acos(cos(radians(?)) * cos(radians(latitude))
                     * cos(radians(longitude) - radians(?))
                     + sin(radians(?)) * sin(radians(latitude)))) AS distance
@@ -60,10 +61,10 @@ class PadelMatchController extends Controller
                 return [
                     'id' => $member->id,
                     'full_name' => $member->full_name,
-                    'user_name' => $member->user_name,
+
                     'level' => $member->level,
                     'level_name' => $member->level_name,
-                    'image' => url('Profile/', $member->image),
+                    'image' => $member->image ? url('Profile/', $member->image) : url('avatar/','profile.jpg'),
                     'distance' => round($member->distance, 2) . ' km',
                 ];
             });
@@ -119,7 +120,7 @@ class PadelMatchController extends Controller
                 'longitude'     => 'required|string',
                 'mind_text'     => 'required|string|max:120',
                 'selected_level' => 'required|string|max:100',
-                'members'       => '|array|min:1|max:8',
+                'members'       => 'array|min:1|max:8',
                 'members.*'     => 'exists:users,id',
             ]);
             if ($validator->fails()) {
@@ -148,17 +149,20 @@ class PadelMatchController extends Controller
                 'level_name'    => $level_name,
                 'creator_id'    => auth()->user()->id,
             ]);
-            $imagePath = 'avatar1.png';
             $group = Group::create([
-                'name' => auth()->user()->user_name,
+                'name' => auth()->user()->full_name,
                 'match_id' => $padelMatch->id,
                 'creator_id'=> auth()->user()->id,
-                'image'=> $imagePath
+                'image'=> null
             ]);
             $group->members()->attach($members);
-
             DB::commit();
-
+            foreach ($members as $memberId) {
+                $member = User::find($memberId);
+                if ($member) {
+                    $member->notify(new PadelMatchCreatedNotification($padelMatch,Auth::user()));
+                }
+            }
             return $this->sendResponse($padelMatch, 'Padel match and group created successfully.');
 
         } catch (\Exception $e) {

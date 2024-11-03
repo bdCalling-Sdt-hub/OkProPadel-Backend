@@ -28,8 +28,8 @@ class GroupInvitationNotification extends Notification
     {
         return [
             'invitation_id' => $this->invitation->id,
-            'group_id' => $this->invitation->group_id,
-            'invited_user_id' => $this->invitation->invited_user_id,
+            'group' => $this->invitation->group->name,
+            'invited_user' => $this->invitation->invitedUser->full_name,
             'message' => 'You have been invited to join a group.',
         ];
     }

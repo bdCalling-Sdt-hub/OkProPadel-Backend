@@ -17,7 +17,7 @@ class SettingController extends Controller
         if (!$user) {
             return response()->json(['error' => 'User not found'], 404);
         }
-        $imageUrl = $user->image ? url('Profile/' . $user->image) : null;
+        $imageUrl = $user->image ? url('Profile/' . $user->image) : url('avatar','profile.jpg');
         $profileData = [
             'full_name' => $user->full_name,
             'email' => $user->email,

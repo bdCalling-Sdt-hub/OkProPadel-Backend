@@ -37,8 +37,8 @@ class MatchJoinRequestNotification extends Notification
         return [
             'padelMatch_id' => $this->match->id,
             'user_id' => $this->user->id,
-            'user_name' => $this->user->user_name,
-            'message' => $this->user->user_name . ' has requested to join your community.',
+            'full_name' => $this->user->full_name,
+            'message' => $this->user->full_name . ' has requested to join your community.',
         ];
     }
 }

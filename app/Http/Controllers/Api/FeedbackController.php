@@ -9,9 +9,12 @@ use App\Models\PadelMatch;
 use App\Models\PadelMatchMemberHistory;
 use App\Models\Questionnaire;
 use App\Models\TrailMatch;
+use App\Models\TrailMatchQuestion;
 use App\Models\User;
 use App\Models\Volunteer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class FeedbackController extends Controller
 {
@@ -23,18 +26,15 @@ class FeedbackController extends Controller
         $padelGames = AfterMatchQuestionAnswer::whereIn('match_id', $matchIds)
                         ->with(['match.creator', 'user'])
                         ->get();
-
         $chunkedGames = $padelGames->chunk(4);
         $formattedData = $chunkedGames->map(function ($chunk) {
             return $chunk->map(function ($member) {
                 $isCreator = $member->match->creator->id === $member->user->id;
-
                 return [
                     'id' => $member->id,
                     'match_id' => $member->match_id,
                     'user_id' => $member->user->id ?? 'N/A',
                     'full_name' => $member->user->full_name ?? 'N/A',
-                    // 'user_name' => strtolower($member->user->user_name ?? 'N/A'),
                     'email' => $member->user->email ?? 'N/A',
                     'matches_played' => $member->user->matches_played ?? 'N/A',
                     'level' => $member->user->level ?? 'N/A',
@@ -52,10 +52,8 @@ class FeedbackController extends Controller
     }
     private function getQuestionnaireDetailsWithAnswers($questionnaireIds, $answers)
     {
-
         $questionnaireIds = is_array($questionnaireIds) ? $questionnaireIds : [];
         $answers = is_array($answers) ? $answers : [];
-
         if (empty($questionnaireIds)) {
             return [];
         }
@@ -70,46 +68,55 @@ class FeedbackController extends Controller
     }
     public function trailMatchFeedback()
     {
-        // Retrieve answers with related trail match questions, users, and clubs
         $answers = AnswerTrailMatchQuestion::with(['trailMatchQuestion', 'user', 'club'])->get();
-
-        // Format the data
         $formattedData = $answers->map(function ($answer) {
             return [
                 'id' => $answer->id,
                 'trail_match_id' => $answer->trail_match_id,
-                'user' => [
-                    'id' => $answer->user->id,
-                    'full_name' => $answer->user->full_name ?? 'N/A',
-                    'email' => $answer->user->email ?? 'N/A',
-                    'level' => $answer->user->level ?? 'N/A',
-                    'matches_played' => $answer->user->matches_played ?? 'N/A',
-                    'profile' => $answer->user->image ? url('Profile/' . $answer->user->image) : null,
-                ],
-                'question' => $answer->trailMatchQuestion->question ?? 'N/A',
-                'answer' => $answer->answer,
+                'user_id' => $answer->user->id,
+                'full_name' => $answer->user->full_name ?? 'N/A',
+                'email' => $answer->user->email ?? 'N/A',
+                'level' => $answer->user->level ?? 'N/A',
+                'matches_played' => $answer->user->matches_played ?? 'N/A',
+                'profile' => $answer->user->image ? url('Profile/' . $answer->user->image) : null,
+                'trail_match_question_answers' => $this->getTrailMatchQuestionnaireDetailsWithAnswers(
+                            json_decode($answer->trail_match_question_id, true),
+                            json_decode($answer->answer, true)
+                    ),
                 'created_at' => $answer->created_at->toDateTimeString(),
                 'club' => $this->club($answer->trail_match_id),
                 'volunteer' => $this->volunteer($answer->trail_match_id),
             ];
         });
-
         return $this->sendResponse($formattedData, 'Successfully retrieved trail match feedback.');
     }
-
+    private function getTrailMatchQuestionnaireDetailsWithAnswers($trailMatchQuestionIds,$answers)
+    {
+        $questionnaireIds = is_array($trailMatchQuestionIds) ? $trailMatchQuestionIds : [];
+        $answers = is_array($answers) ? $answers : [];
+        if (empty($questionnaireIds)) {
+            return [];
+        }
+        $questionnaires = TrailMatchQuestion::whereIn('id', $questionnaireIds)->get();
+        return $questionnaires->map(function ($questionnaire, $index) use ($answers) {
+            return [
+                'id' => $questionnaire->id,
+                'question' => $questionnaire->question,
+                'answer' => $answers[$index] ?? 'N/A',
+            ];
+        })->toArray();
+    }
     private function club($trail_match_id)
     {
         $trailMatch = TrailMatch::find($trail_match_id);
         if (!$trailMatch) {
-            return null; // Return null instead of an error for a missing trail match
+            return null;
         }
-
         return [
-            'id' => $trailMatch->club->id, // Assuming club relation is defined
+            'id' => $trailMatch->club->id,
             'club_name' => $trailMatch->club->club_name ?? 'N/A',
         ];
     }
-
     private function volunteer($trail_match_id)
     {
         $trailMatch = TrailMatch::find($trail_match_id);
@@ -126,8 +133,43 @@ class FeedbackController extends Controller
                 'id' => $volunteer->id,
                 'name' => $volunteer->name ?? 'N/A',
                 'email' => $volunteer->email ?? 'N/A',
-                'image' => $volunteer->image ? url('uploads/volunteers/'. $volunteer->image) :null,
+                'image' => $volunteer->image ? url('uploads/volunteers/'. $volunteer->image) : url('avatar/profile.jpg'),
             ];
         })->toArray();
+    }
+    public function adjustLevel(Request $request, $userId)
+    {
+        Log::info('Request Payload:', $request->all());
+        $validator = Validator::make($request->all(), [
+            'action' => 'required|in:up,down',
+        ]);
+        if ($validator->fails()) {
+            return $this->sendError('Validation Error', $validator->errors(), 422);
+        }
+        $user = User::find($userId);
+        if (!$user) {
+            return $this->sendError('User not found.', [], 404);
+        }
+        $minLevel = 1;
+        $maxLevel = 5;
+        $levelNames = [
+            1 => 'Beginner',
+            2 => 'Lower-Intermediate',
+            3 => 'Upper-Intermediate',
+            4 => 'Advanced',
+            5 => 'Professional',
+        ];
+
+        $action = $request->action;
+        if (($action === 'up' && $user->level >= $maxLevel) || ($action === 'down' && $user->level <= $minLevel)) {
+            return $this->sendError('Invalid action or level limits reached.');
+        }
+        $user->level += ($action === 'up') ? 1 : -1;
+        $user->level_name = $levelNames[$user->level] ?? 'Unknown';
+        $user->save();
+        return $this->sendResponse([
+            'level' => $user->level,
+            'level_name' => $user->level_name
+        ], 'User level adjusted successfully.');
     }
 }

@@ -26,7 +26,7 @@ class TrailMatchRequestNotification extends Notification
     public function toArray($notifiable)
     {
         return [
-            'message' => "{$this->user->user_name} has requested to trail a match.",
+            'message' => "{$this->user->full_name} has requested to trail a match.",
             'user_id' => $this->user->id,
         ];
     }

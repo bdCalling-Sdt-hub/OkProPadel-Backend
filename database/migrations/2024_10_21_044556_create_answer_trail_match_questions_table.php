@@ -16,8 +16,8 @@ return new class extends Migration
 
             $table->foreignId('trail_match_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('trail_match_question_id')->constrained()->cascadeOnDelete();
-            $table->string('answer');
+            $table->json('trail_match_question_id');
+            $table->json('answer');
             $table->timestamps();
         });
     }

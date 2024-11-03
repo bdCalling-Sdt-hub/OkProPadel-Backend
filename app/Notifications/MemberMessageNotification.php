@@ -27,7 +27,7 @@ class MemberMessageNotification extends Notification
     {
         return [
             'message_id' => $this->message->id,
-            'sender_id' => $this->message->sender_id,
+            'sender' => $this->message->user->full_name,
             'message' => $this->message->message,
         ];
     }

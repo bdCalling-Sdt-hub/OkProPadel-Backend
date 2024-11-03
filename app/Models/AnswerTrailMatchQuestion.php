@@ -9,10 +9,10 @@ class AnswerTrailMatchQuestion extends Model
 {
     use HasFactory;
     protected $fillable = [
-        "user_id",
-        "question_id",
-        "answer",
         "trail_match_id",
+        "user_id",
+        "trail_match_question_id",
+        "answer",
     ];
     public function user()
     {

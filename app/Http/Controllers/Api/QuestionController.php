@@ -103,7 +103,7 @@ class QuestionController extends Controller
     }
     public function getQuestion()
     {
-        $questions = Question::orderBy("id", "desc")->get();
+        $questions = Question::orderBy("id", "desc")->where('status',1)->get();
         if ($questions->isEmpty()) {
             return response()->json([
                 "status"=> "error",

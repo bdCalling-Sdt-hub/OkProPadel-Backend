@@ -13,7 +13,7 @@ class TrailMatchQuestionController extends Controller
 {
     public function getTrailMatchQuestion()
     {
-        $questions = TrailMatchQuestion::orderBy("id", "desc")->get();
+        $questions = TrailMatchQuestion::orderBy("id", "desc")->where('status',1)->get();
         if ($questions->isEmpty()) {
             return response()->json([
                 "status"=> "error",
@@ -160,23 +160,49 @@ class TrailMatchQuestionController extends Controller
             'answers' => 'required|array',
             'answers.*.trail_match_question_id' => 'required|exists:trail_match_questions,id',
             'answers.*.answer' => 'required|string',
-            'answers.*.value' => 'required|integer',
         ]);
         if ($validator->fails()) {
-            return $this->sendError("Validation Error:", $validator->errors());
+            return response()->json([
+                'success' => false,
+                'message' => "Validation Error",
+                'errors' => $validator->errors()
+            ], 422);
         }
+
         try {
-            foreach ($request->answers as $answerData) {
-                $answer = new AnswerTrailMatchQuestion();
-                $answer->trail_match_question_id = $answerData['trail_match_question_id'];
-                $answer->user_id = auth()->user()->id;
-                $answer->answer = $answerData['answer'];
-                $answer->trail_match_id = $request->trail_match_id;
-                $answer->save();
+            $trailMatchQuestionIds = [];
+            $answers = [];
+            if (is_array($request->answers)) {
+                foreach ($request->answers as $answerData) {
+                    if (isset($answerData['trail_match_question_id']) && isset($answerData['answer'])) {
+                        $trailMatchQuestionIds[] = $answerData['trail_match_question_id'];
+                        $answers[] = $answerData['answer'];
+                    }
+                }
+                $answer = AnswerTrailMatchQuestion::create([
+                    'trail_match_id' => $request->trail_match_id,
+                    'user_id' => auth()->id(),
+                    'trail_match_question_id' => json_encode($trailMatchQuestionIds),
+                    'answer' => json_encode($answers)
+                ]);
+                return response()->json([
+                    'success' => true,
+                    'message' => "Answers stored successfully",
+                    'data' => $answer
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Invalid answers format"
+                ], 422);
             }
-            return $this->sendResponse([], "Answers stored successfully.");
         } catch (\Exception $e) {
-            return $this->sendError("An error occurred while storing answers. Please try again later.");
+            return response()->json([
+                'success' => false,
+                'message' => "An error occurred while storing answers. Please try again later.",
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
+
 }

@@ -17,13 +17,10 @@ class EndMatchNotification extends Notification
     {
         $this->match = $match;
     }
-
     public function via($notifiable)
     {
-        return ['database']; // Sends via both email and database
+        return ['database'];
     }
-
-
     public function toArray($notifiable)
     {
         return [

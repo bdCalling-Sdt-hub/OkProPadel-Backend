@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('trail_matches', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('request_id');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('volunteer_id');
             $table->foreignId('club_id')->constrained()->onDelete('cascade');

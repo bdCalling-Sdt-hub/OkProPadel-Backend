@@ -21,6 +21,5 @@ class DashboardController extends Controller
             'total_clubs' => $totalClubs ?? 0,
         ];
         return $this->sendResponse($data, 'Dashboard statistics retrieved successfully.');
-
     }
 }

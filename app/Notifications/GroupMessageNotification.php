@@ -27,8 +27,8 @@ class GroupMessageNotification extends Notification
     {
         return [
             'message' => $this->message->message,
-            'group_id' => $this->message->group_id,
-            'sender_id' => $this->message->user_id,
+            'group' => $this->message->group->name,
+            'sender' => $this->message->user->full_name,
             'created_at' => now(),
         ];
     }

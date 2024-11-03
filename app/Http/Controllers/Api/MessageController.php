@@ -43,6 +43,19 @@ class MessageController extends Controller
     {
         return $this->padelMatchController->members();
     }
+    public function activeGroup($matchId)
+    {
+        $group = Group::with('members', 'messages.sender')->find($matchId);
+        if (!$group) {
+            return $this->sendError("Group not found.");
+        }
+        $isMember = $group->members->contains('id', auth()->id());
+        if (!$isMember) {
+            return $this->sendError("Access denied. You are not a member of this group.");
+        }
+        return $this->sendResponse($group->messages, "Group messages retrieved successfully.");
+    }
+
     public function blockPrivateMessage(Request $request)
     {
         $request->validate([
@@ -102,7 +115,6 @@ class MessageController extends Controller
 
         if ($padelMatch->status === 'started') {
             $updates = AfterMatchQuestionAnswer::where('match_id', $padelMatch->id)
-                ->where('questionnaire_id', null)
                 ->where('answer', null)
                 ->get();
 
@@ -256,11 +268,10 @@ class MessageController extends Controller
             return [
                 'user_id' => $user->id,
                 'full_name' => $user->full_name,
-                // 'user_name' => $user->user_name,
                 'email' => $user->email,
                 'level' => $user->level,
                 'matches_played' => $user->matches_played,
-                'image' => $user->image ? url('Profile/',$user->image) : url('avatar/',$user->image),
+                'image' => $user->image ? url('Profile/',$user->image) :  url('avatar/','profile.jpg'),
                 'last_message' => $lastMessage ? $lastMessage->message : null,
                 'last_message_time' => $lastMessage ? $lastMessage->created_at : null,
                 'unread_count' => $unreadCount,
@@ -455,6 +466,8 @@ class MessageController extends Controller
                     'isApproved' => $userId === $authId,
                 ]);
         }
+        $padelMatch->status = null;
+        $padelMatch->save();
         foreach($request->user_ids as $userId) {
             $user = User::find($userId);
             $group = Group::where('match_id', $matchId)->first();
@@ -491,51 +504,55 @@ class MessageController extends Controller
     }
     public function getGroupMember($matchId)
     {
-        $padelMatch = PadelMatch::where('id', $matchId)->first();
+        $padelMatch = PadelMatch::find($matchId);
         if (!$padelMatch) {
             return $this->sendError('Match not found.', [], 404);
         }
-        $members = PadelMatchMember::where('padel_match_id',$matchId)->get();
-        if (!$members) {
-            $this->sendError('No members found.', [], 404);
+        $group = Group::where('match_id', $padelMatch->id)->first();
+        if (!$group) {
+            return $this->sendError('Group not found.', [], 404);
         }
-        $formattedMembers = $members->map(function ($member) {
-            return[
-                'user_id'    => $member->user->id,
-                'full_name'  => $member->user->full_name,
-                // 'user_name'  => $member->user->user_name,
-                'level'      => $member->user->level,
-                'is_approved' => $member->isApproved ?? '',
-                'level_name' => $member->level_name,
-                'image'      => $member->image ? url('Profile/' . $member->image) : url('avatar/',$member->image),
-            ];
-
-        });
-        if ($members->isEmpty()) {
+        $groupMembers = $group->members()->get();
+        if ($groupMembers->isEmpty()) {
             return $this->sendError('No members found for this match.', [], 404);
         }
+        $formattedMembers = $groupMembers->map(function ($member) {
+            return [
+                'user_id'    => $member->id,
+                'full_name'  => $member->full_name,
+                'email'      => $member->email,
+                'level'      => $member->level,
+                'is_approved'=> $member->isApproved ?? false,
+                'level_name' => $member->level_name,
+                'image'      => $member->image ? url('Profile/' . $member->image) : url('avatar/profile.jpg'),
+            ];
+        });
         return $this->sendResponse($formattedMembers, 'Group members retrieved successfully.');
     }
     public function getUserGroup()
     {
         $user = Auth::user();
-        $groups = $user->createdGroups()->with('creator', 'messages')
-            ->orderBy('id', 'desc')
-            ->get();
+
+        // Fetch group IDs where the user is a member
+        $groupIds = GroupMember::where('user_id', $user->id)->pluck('group_id');
+
+        // Retrieve groups using the collected group IDs
+        $groups = Group::whereIn('id', $groupIds)->with('creator', 'messages')->orderBy('id', 'desc')->get();
+
         if ($groups->isEmpty()) {
             return $this->sendError('No groups found for this user.', [], 404);
         }
+
         $formattedGroups = $groups->map(function ($group) {
             $lastMessage = $group->messages()->latest()->first();
             return [
                 'group_id' => $group->id,
                 'group_name' => $group->name,
                 'match_id' => $group->match_id,
-                'group_image' => $group->image ? url('uploads/group/', $group->image) : url('avatar/', $group->image),
+                'group_image' => $group->image ? url('uploads/group/', $group->image) : url('avatar', 'community.jpg'),
                 'creator' => [
                     'id' => $group->creator->id,
                     'full_name' => $group->creator->full_name,
-                    // 'user_name' => $group->creator->user_name,
                 ],
                 'last_message' => $lastMessage ? [
                     'message' => $lastMessage->message,
@@ -547,15 +564,16 @@ class MessageController extends Controller
 
         return $this->sendResponse($formattedGroups, 'User groups retrieved successfully.');
     }
+
     public function updateGroup(Request $request, $groupId)
     {
-        $validator = Validator::make($request->all(), [
-           'name' => 'required|string|max:255',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-        ]);
-        if ($validator->fails()) {
-            return $this->sendError('Validation Error', $validator->errors(), 422);
-        }
+        // $validator = Validator::make($request->all(), [
+        //    'name' => 'required|string|max:255',
+        //     'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        // ]);
+        // if ($validator->fails()) {
+        //     return $this->sendError('Validation Error', $validator->errors(), 422);
+        // }
         $group = Group::where('id', $groupId)
                       ->where('creator_id', Auth::id())
                       ->first();
@@ -576,7 +594,7 @@ class MessageController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'group_id'=> 'required|exists:groups,id',
-            'message' => 'required|string|max:1000',
+            'message' => 'nullable|required|string|max:1000',
             'images' => 'array',
             'images.*' => 'image|mimes:jpg,jpeg,png|max:2048',
         ]);
@@ -603,11 +621,11 @@ class MessageController extends Controller
                 'images' => json_encode($imagePaths),
                 'is_read'=> true,
             ]);
-            foreach ($group->members as $member) {
-                if ($member->id !== auth()->id()) {
-                    $member->notify(new GroupMessageNotification($message));
-                }
-            }
+            // foreach ($group->members as $member) {
+            //     if ($member->id !== auth()->id()) {
+            //         $member->notify(new GroupMessageNotification($message));
+            //     }
+            // }
             return $this->sendResponse($message, 'Message sent successfully.');
         } catch (\Exception $e) {
             return $this->sendError('Failed to send message.', ['error' => $e->getMessage()], 500);
@@ -688,26 +706,60 @@ class MessageController extends Controller
                     ->update(['is_read' => true]);
         return $this->sendResponse([], 'Messages marked as read successfully.');
     }
-    public function getGroupMessages($groupId)
+    public function getGroupMessages($groupId,Request $request)
     {
         $group = Group::with(['messages.sender'])->find($groupId);
         if (!$group) {
             return $this->sendError('Group not found.', [], 404);
         }
-        $formattedMessages = $group->messages->map(function ($message) {
-            $imageCollection = collect(json_decode($message->images, true) ?? []);
+        $padelMatch = PadelMatch::where('id', $group->match_id)->first();
+        $groupMemberCount = $group->members()->count();
+
+        $members = $group->members()->get()
+        ->map(function ($member) use ($padelMatch) {
             return [
-                'id' => $message->id,
-                'sender_name' => $message->sender->user_name,
-                'message' => $message->message,
-                'images' =>  $imageCollection->map(function ($image) {
-                                return $image ? url("uploads/group_messages/",$image) : null;
-                            }),
-                'is_read' => $message->is_read,
-                'created_at' => $message->created_at->toDateTimeString(),
+                'id' => $member->id,
+                'full_name' => $member->full_name,
+                'email' => $member->email,
+                'level' => $member->level,
+                'level_name' => $member->level_name,
+                'matches_played' => $member->matches_played,
+                'image' => $member->image ? url('Profile/' . $member->image) : url('avatar/profile.jpg'),
             ];
         });
-        return $this->sendResponse($formattedMessages, 'Group messages retrieved successfully.');
+
+        $groupName = $group->name;
+        $groupImage = $group->image ? url('uploads/group/' . $group->image) : url('avatar/community.jpg');
+        $formattedMessages = $group->messages()
+            ->orderBy('id', 'desc')
+            ->paginate($request->per_page)
+            ->through(function ($message) use ($groupMemberCount, $groupName, $groupImage) {
+                $imageCollection = collect(json_decode($message->images, true) ?? []);
+                return [
+                    'id' => $message->id,
+                    'sender_id' => $message->sender->id,
+                    'sender_name' => $message->sender->full_name,
+                    'image' => $message->sender->image
+                        ? url('Profile/' . $message->sender->image)
+                        : url('avatar/profile.jpg'),
+                    'message' => $message->message,
+                    'images' => $imageCollection->map(function ($image) {
+                        return $image ? url("uploads/group_messages/" . $image) : null;
+                    })->filter(),
+                    'is_read' => $message->is_read,
+                    'created_at' => $message->created_at->toDateTimeString(),
+                ];
+            });
+
+        $groupMessages = [
+            'messages' => $formattedMessages,
+            'group_members' => $groupMemberCount,
+            'group_name' => $groupName,
+            'padel_match' => $padelMatch,
+            'group_image' => $groupImage,
+            'members' => $members,
+        ];
+        return $this->sendResponse($groupMessages, 'Group messages retrieved successfully.');
     }
     public function inviteMembers(Request $request, $groupId)
     {
@@ -732,13 +784,13 @@ class MessageController extends Controller
                 $errors[] = "User already member of the group.";
                 continue;
             }
-            $existingInvitation = Invitation::where('group_id', $groupId)
-                                            ->where('invited_user_id', $userId)
-                                            ->exists();
-            if ($existingInvitation) {
-                $errors[] = "User ID {$userId} has already been invited.";
-                continue;
-            }
+            // $existingInvitation = Invitation::where('group_id', $groupId)
+            //                                 ->where('invited_user_id', $userId)
+            //                                 ->exists();
+            // if ($existingInvitation) {
+            //     $errors[] = "User has already been invited.";
+            //     continue;
+            // }
             $invitation = Invitation::create([
                 'group_id' => $groupId,
                 'invited_user_id' => $userId,
@@ -760,6 +812,7 @@ class MessageController extends Controller
     {
         $invitation = Invitation::where('id', $invitationId)
                                 ->where('invited_user_id', Auth::id())
+                                ->orderBy('id','desc')
                                 ->first();
         if (!$invitation) {
             return $this->sendError('Invitation not found or you are not invited.', [], 404);

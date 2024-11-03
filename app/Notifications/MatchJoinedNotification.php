@@ -32,8 +32,7 @@ class MatchJoinedNotification extends Notification
     {
         return [
             'match_id' => $this->match->id,
-            'user_name' => $this->user->name,
-            'message' => "{$this->user->name} has joined the match.",
+            'message' => "{$this->user->full_name} has joined the match.",
         ];
     }
 }

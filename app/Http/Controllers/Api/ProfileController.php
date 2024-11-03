@@ -46,12 +46,10 @@ class ProfileController extends Controller
         }
         return $this->sendResponse($tarilmatch->game_status, "Trail Match started successfully");
     }
-    public function TrailMatchStatus(Request $request)
+    public function TrailMatchStatus($trailMatchId)
     {
-        $request->validate([
-            'trail_match_id' => 'required|exists:trail_matches,id',
-        ]);
-        $trailMatch = TrailMatch::find($request->trail_match_id);
+
+        $trailMatch = TrailMatch::find($trailMatchId);
         if (!$trailMatch) {
             return $this->sendError('No trail match found.');
         }
@@ -116,8 +114,9 @@ class ProfileController extends Controller
                 return [
                     'id' => $volunteer->id,
                     'name' => $volunteer->name,
+                    'phone_number' => $volunteer->phone_number,
                     'image' => $volunteer->image
-                        ? url('uploads/volunteers', $volunteer->image)
+                        ? url('uploads/volunteers/', $volunteer->image)
                         : null,
                 ];
             });
@@ -206,6 +205,7 @@ class ProfileController extends Controller
         $formattedUser = [
             'id' => $user->id,
             'full_name' => $user->full_name,
+            'image' => $user->image ? url('Profile/',$user->image) : url('avatar','profile.jpg'),
             'email' => $user->email,
             'level' => $user->level,
             'matches_played'=> $user->matches_played,
@@ -305,7 +305,7 @@ class ProfileController extends Controller
             'data' => [
                 'user_id' => $user->id,
                 'full_name' => $user->full_name,
-                'user_name' => $user->user_name,
+                'image' => $user->image ? url('Profile/' . $user->image) : url('avatar','profile.jpg'),
                 'current_level' => $currentLevelDetails,
                 'before_levels' => ($currentLevel !== 1) ? ($currentLevel - 1) : null,
                 'before_level_array' => $beforeLevelArray,

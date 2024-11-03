@@ -14,6 +14,59 @@ use Mail;
 
 class AuthController extends Controller
 {
+    public function socialLogin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'full_name' => 'required',
+            'email' => 'required|email|max:100',
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 400);
+        }
+        $existingUser = User::where('email', $request->email)->first();
+        if ($existingUser) {
+            if (is_null($existingUser->google_id) && is_null($existingUser->facebook_id)) {
+                return response()->json([
+                    'message' => 'User already exists. Sign in manually.',
+                ], 422);
+            }
+            if ($token = auth()->login($existingUser)) {
+                return $this->responseWithToken($token);
+            }
+            return response()->json(['message' => 'User unauthorized'], 401);
+        }
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'role' => 'MEMBER',
+            'google_id' => $request->google_id ?? null,
+            'facebook_id' => $request->facebook_id ?? null,
+            'latitude' => $request->latitude ?? null,
+            'longitude' => $request->longitude ?? null,
+            'is_verified' => 1,
+            'image' => $request->image ?? null,
+        ]);
+        if ($token = auth()->login($user)) {
+            return $this->responseWithToken($token);
+        }
+        return response()->json(['message' => 'User unauthorized'], 401);
+    }
+    protected function responseWithToken($token)
+    {
+        $user = auth()->user();
+
+        return response()->json([
+            'status' => true,
+            'access_token' => $token,
+            'user_id' => $user->id,
+            'role' => $user->role,
+            'google_id' => $user->google_id,
+            'facebook_id' => $user->facebook_id,
+            'token_type' => 'bearer',
+            'user' => $user,
+            'expires_in' => auth()->factory()->getTTL() * 60,
+        ], 200);
+    }
 
     public function getUserName(Request $request)
     {
@@ -76,7 +129,6 @@ class AuthController extends Controller
         }
         $validator = Validator::make($request->all(), [
             'full_name'  => 'required|string|max:255',
-            // 'user_name'  => 'required|string|max:255|unique:users,user_name,except,id',
             'email'      => 'required|email|unique:users,email',
             'password'   => 'required|min:8|max:60',
             'role'       => ['required', Rule::in(['ADMIN', 'MEMBER'])],
@@ -245,7 +297,7 @@ class AuthController extends Controller
 
     public function users()
     {
-        $users = User::where('status','active')->paginate(10);
+        $users = User::where('status','active')->where('role', 'MEMBER')->paginate(10);
         if ($users) {
             return $this->sendResponse($users, 'User retrieved successfully.');
         }
@@ -297,7 +349,7 @@ class AuthController extends Controller
     public function profile(Request $request)
     {
         $user = Auth::user();
-        $user->image = url('Profile/' . $user->image);
+        $user->image = $user->image ? url('Profile/' . $user->image) : url('avatar','profile.jpg');
         return $this->sendResponse($user, 'User profile retrieved successfully.');
     }
     public function logout(Request $request)

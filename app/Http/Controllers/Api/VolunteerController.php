@@ -26,25 +26,34 @@ class VolunteerController extends Controller
         $volunter->role = $request->role;
         $volunter->save();
         return $this->sendResponse([],"Role successfully updated.");
-
     }
     public function index(Request $request)
     {
-        $volunteers = Volunteer::where('status', true)->orderBy('id', 'desc')->paginate(10);
-        if ($volunteers->isEmpty()) {
-            return $this->sendError('No Volunteer Found.');
-        }
-        return $this->sendResponse([
-            'data' => $volunteers->items(),
-            'meta' => [
-                'current_page' => $volunteers->currentPage(),
-                'total_pages' => $volunteers->lastPage(),
-                'total_volunteers' => $volunteers->total(),
-                'per_page' => $volunteers->perPage(),
-            ],
-        ], 'All Volunteers retrieved successfully.');
-    }
+        $volunteers = Volunteer::where('status', true)
+            ->orderBy('id', 'desc')
+            ->get();
 
+        if ($volunteers->isEmpty()) {
+            return $this->sendError('No volunteers found.');
+        }
+        $formattedVolunteers = $volunteers->map(function ($volunteer) {
+            return [
+                'id' => $volunteer->id,
+                'name' => $volunteer->name,
+                'email' => $volunteer->email,
+                'location' => $volunteer->location,
+                'level' => $volunteer->level,
+                'role' => $volunteer->role,
+                'phone_number' => $volunteer->phone_number ?? 'N/A',
+                'status' => $volunteer->status,
+                'image' => $volunteer->image ? url('uploads/volunteers/'. $volunteer->image) : url('avatar','profile.jpg')
+            ];
+        });
+        return $this->sendResponse([
+            'volunteers' => $formattedVolunteers,
+            'total' => $volunteers->count(),
+        ], 'All volunteers retrieved successfully.');
+    }
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -63,8 +72,8 @@ class VolunteerController extends Controller
         $imagePath = null;
         if ($request->hasFile('image')) {
             $image = $request->file('image');
-            $imagePath = 'uploads/volunteers/' . time() . '.' . $image->getClientOriginalName();
-            $image->move(public_path('uploads/volunteers'), $imagePath);
+            $imagePath = time() . '.' . $image->getClientOriginalName();
+            $image->move(public_path('uploads/volunteers/'), $imagePath);
         }
         $volunteer = Volunteer::create([
             'name' => $request->name,
@@ -76,7 +85,6 @@ class VolunteerController extends Controller
             'image' => $imagePath,
             'status' => true,
         ]);
-
         return $this->sendResponse($volunteer, "Volunteer created successfully.");
     }
     public function update(Request $request, $id)
@@ -95,6 +103,9 @@ class VolunteerController extends Controller
             return $this->sendError("Validation Error:", $validator->errors());
         }
         $volunteer = Volunteer::findOrFail($id);
+        if(!$volunteer){
+            return $this->sendError("Not found volunteer.");
+        }
         if ($request->hasFile('image')) {
             if ($volunteer->image) {
                 $oldImagePath = public_path($volunteer->image);
@@ -103,8 +114,8 @@ class VolunteerController extends Controller
                 }
             }
             $image = $request->file('image');
-            $imagePath = 'uploads/volunteers/' . time() . '.' . $image->getClientOriginalExtension();
-            $image->move(public_path('uploads/volunteers'), $imagePath);
+            $imagePath = time() . '.' . $image->getClientOriginalExtension();
+            $image->move(public_path('uploads/volunteers/'), $imagePath);
         }
         $volunteer->name = $request->name ?? $volunteer->name;
         $volunteer->email = $request->email ?? $volunteer->email;
@@ -113,7 +124,7 @@ class VolunteerController extends Controller
         $volunteer->role = $request->role ?? $volunteer->role;
         $volunteer->image = $imagePath ?? $volunteer->image;
         $volunteer->status = $request->status ?? $volunteer->status;
-       $volunteer->save();
+        $volunteer->save();
         return $this->sendResponse($volunteer, "Volunteer updated successfully.");
     }
     public function delete($id)

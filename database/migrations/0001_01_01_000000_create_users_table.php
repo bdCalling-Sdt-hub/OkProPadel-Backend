@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('password');
             $table->enum('role', ['ADMIN', 'MEMBER','VOLUNTEER'])->default('MEMBER');
             $table->enum('level', ['1','2','3','4','5'])->nullable();
-            $table->enum('level_name', ['Beginner','Lower-Intermediate','Upper-Intermediate','Advanced','Professonal'])->nullable();
+            $table->enum('level_name', ['Beginner','Lower-Intermediate','Upper-Intermediate','Advanced','Professional'])->nullable();
             $table->integer('points')->default(0);
             $table->enum('status', ['active', 'banned'])->nullable();
             $table->bigInteger('matches_played')->default(0);
@@ -40,6 +40,7 @@ return new class extends Migration
             $table->boolean('mute_notifications')->default(false);
             $table->string('google_id')->nullable();
             $table->string('facebook_id')->nullable();
+
             $table->rememberToken();
             $table->timestamps();
         });

@@ -43,7 +43,7 @@ class TrailMatchStatusNotification extends Notification
         return [
             'title' => $this->title,
             'message' => $this->message,
-            'user'=> $this->user->id,
+            'user'=> $this->user->full_name,
             'tail_match_id' => $this->trailMatch->id
         ];
     }
