@@ -33,6 +33,7 @@ class PadelMatchMemberAdded extends Notification
             'message' => "You have been added to a match by {$this->addedBy->full_name} from {$this->group}.",
             'match_id' => $this->match->id,
             'group'=> $this->group,
+            // 'image'=> $this->group->image,
         ];
     }
 }

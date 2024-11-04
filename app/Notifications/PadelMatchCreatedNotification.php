@@ -29,7 +29,7 @@ class PadelMatchCreatedNotification extends Notification
             'creator_image'=>$this->user->image ? url('Profile/',$this->user->image) : url('avatar/profile.jpg'),
             'mind_text' => $this->padelMatch->mind_text,
             'level' => $this->padelMatch->selected_level,
-            'message' => "A new community has been created !.That level is {$this->padelMatch->level}."
+            'message' => "A new community has been created !.That level is {$this->padelMatch->selected_level}."
         ];
     }
 }

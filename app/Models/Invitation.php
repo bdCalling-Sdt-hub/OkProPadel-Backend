@@ -11,6 +11,7 @@ class Invitation extends Model
     protected $fillable = [
         'group_id',
         'invited_user_id',
+        'is_accepted'
     ];
     public function group()
     {

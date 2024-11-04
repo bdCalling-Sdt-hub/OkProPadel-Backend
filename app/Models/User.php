@@ -40,6 +40,7 @@ class User extends Authenticatable
         'points',
         'location',
         'mute_notifications',
+        'adjust_status'
     ];
     protected $hidden = [
         'password',

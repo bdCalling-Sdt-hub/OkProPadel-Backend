@@ -65,7 +65,7 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => AnswerC
 });
 Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => PadelMatchController::class], function () {
     Route::get('level-with-level-name', 'levelWithLevelName');
-    Route::get('members', 'members');
+    Route::get('members/{groupId}', 'members');
     Route::get('search-member', 'searchMember');
 
     Route::post('padel-match-create','padelMatchCreate');
@@ -89,6 +89,7 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Message
     Route::get('members', 'members');
     Route::post('group-invite/{groupId}',  'inviteMembers');
     Route::post('group-invitation-accept/{invitationId}','acceptInvitation');
+    Route::post('group-invitation-deny/{invitationId}','denyInvitation');
     Route::get('get-group-member/{matchId}', 'getGroupMember');
     Route::post('add-member/{matchId}', 'PadelMatchMemberAdd');
     Route::put('accept-padel-match/{matchId}','acceptPadelMatch');
@@ -123,11 +124,13 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Notific
     Route::put('unmute-notifications', 'unmuteNotifications');
     Route::get('notifications', 'notifications');
     Route::post('/notifications/read/{id}', 'markAsRead');
+    Route::post('notifications-read-all','notificationReadAll');
 });
 
 /* Admin Panel Routes */
 Route::group(['middleware' => ['auth:sanctum','admin'], 'controller' => DashboardController::class], function () {
     Route::get('dashboard', 'dashboard');
+    Route::get('dashboard-graph-data','dashboardGraphData');
 });
 Route::group(['middleware' => ['auth:sanctum','admin'], 'controller' => UserManagementController::class], function () {
     Route::get('get-users', 'getUsers');

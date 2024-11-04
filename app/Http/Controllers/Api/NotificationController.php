@@ -10,16 +10,34 @@ use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
-    public function notifications()
+    public function notificationReadAll()
     {
-        $notifications = Auth::user()->notifications;
-
+        $user = Auth::user();
+        if ($user->unreadNotifications->isNotEmpty()) {
+            $user->unreadNotifications->markAsRead();
+            return response()->json([
+                'message' => 'All notifications marked as read.',
+                'status' => true
+            ]);
+        }
         return response()->json([
-            'success' => true,
-            'data' => $notifications,
+            'message' => 'No unread notifications found.',
+            'status' => false
         ]);
     }
 
+    public function notifications()
+    {
+        $user = Auth::user();
+        $notifications = $user->notifications;
+        $notificationCount = $notifications->count();
+
+        return response()->json([
+            'success' => true,
+            'count' => $notificationCount,
+            'data' => $notifications,
+        ]);
+    }
     public function markAsRead($id)
     {
         $notification = Auth::user()->notifications()->find($id);
@@ -38,7 +56,6 @@ class NotificationController extends Controller
             'message' => 'Notification not found.',
         ], 404);
     }
-
     public function muteNotifications(Request $request)
     {
         try {
@@ -59,11 +76,4 @@ class NotificationController extends Controller
             return $this->sendError('Failed to unmute notifications.', ['error' => $e->getMessage()], 500);
         }
     }
-    // public function getPadelMatchMemberAddedNotifications()
-    // {
-    //     $user = Auth::user();
-    //     $notifications = $user->notifications()->where('type', PadelMatchMemberAdded::class)->get();
-
-    //     return $this->sendResponse($notifications, 'Notifications retrieved successfully.');
-    // }
 }

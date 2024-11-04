@@ -28,9 +28,12 @@ class GroupInvitationNotification extends Notification
     {
         return [
             'invitation_id' => $this->invitation->id,
+            'invitation_status' => $this->invitation->is_accepted,
+            'group_id' => $this->invitation->group->id,
             'group' => $this->invitation->group->name,
-            'invited_user' => $this->invitation->invitedUser->full_name,
-            'message' => 'You have been invited to join a group.',
+            'creator' => $this->invitation->group->creator->full_name,
+            'creator_image' => $this->invitation->group->creator->image ? url('Profile/',$this->invitation->group->creator->image) : url('avatar/profile.jpg'),
+            'message' => "You've been invited by {$this->invitation->group->creator->full_name} to join the {$this->invitation->group->name}.",
         ];
     }
 

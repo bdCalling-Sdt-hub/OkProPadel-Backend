@@ -40,7 +40,7 @@ return new class extends Migration
             $table->boolean('mute_notifications')->default(false);
             $table->string('google_id')->nullable();
             $table->string('facebook_id')->nullable();
-
+            $table->string('adjust_level')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

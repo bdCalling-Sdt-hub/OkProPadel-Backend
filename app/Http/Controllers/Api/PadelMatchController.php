@@ -29,9 +29,14 @@ class PadelMatchController extends Controller
             return $this->sendError('An error occurred: ' . $e->getMessage(), [], 500);
         }
     }
-    public function members()
+    public function members($groupId)
     {
         try {
+            $group = Group::find($groupId);
+            if (!$group) {
+                return $this->sendError('Group not found.');
+            }
+            $userIds = $group->members()->get()->pluck('id')->toArray();
             $user = Auth::user();
             if (!$user) {
                 return $this->sendError("No user found.");
@@ -41,14 +46,15 @@ class PadelMatchController extends Controller
             }
             $latitude = $user->latitude;
             $longitude = $user->longitude;
-            $members = User::selectRaw("
+            $members = User::whereNotIn('id', $userIds)
+                ->selectRaw("
                     id, full_name, level, level_name, image, latitude, longitude,
                     (6371 * acos(cos(radians(?)) * cos(radians(latitude))
                     * cos(radians(longitude) - radians(?))
                     + sin(radians(?)) * sin(radians(latitude)))) AS distance
                 ", [$latitude, $longitude, $latitude])
                 ->where('status', 'active')
-                ->where('role', operator: ['MEMBER'])
+                ->where('role', 'MEMBER')
                 ->where('id', '!=', $user->id)
                 ->having('distance', '<=', 10)
                 ->orderBy('distance', 'ASC')
@@ -61,10 +67,9 @@ class PadelMatchController extends Controller
                 return [
                     'id' => $member->id,
                     'full_name' => $member->full_name,
-
                     'level' => $member->level,
                     'level_name' => $member->level_name,
-                    'image' => $member->image ? url('Profile/', $member->image) : url('avatar/','profile.jpg'),
+                    'image' => $member->image ? url('Profile/' . $member->image) : url('avatar/profile.jpg'),
                     'distance' => round($member->distance, 2) . ' km',
                 ];
             });
@@ -77,6 +82,7 @@ class PadelMatchController extends Controller
             return $this->sendError('An error occurred: ' . $e->getMessage(), [], 500);
         }
     }
+
 
     public function searchMember(Request $request)
     {
@@ -150,7 +156,7 @@ class PadelMatchController extends Controller
                 'creator_id'    => auth()->user()->id,
             ]);
             $group = Group::create([
-                'name' => auth()->user()->full_name,
+                'name' => "new community",
                 'match_id' => $padelMatch->id,
                 'creator_id'=> auth()->user()->id,
                 'image'=> null
@@ -170,51 +176,6 @@ class PadelMatchController extends Controller
             return $this->sendError('An error occurred: ' . $e->getMessage(), [], 500);
         }
     }
-    // public function updatePadelMatch(Request $request, $id)
-    // {
-    //     try {
-    //         $padelMatch = PadelMatch::find($id);
-    //         if (!$padelMatch) {
-    //             return $this->sendError('Padel match not found.', [], 404);
-    //         }
-    //         if ($padelMatch->creator_id !== auth()->id()) {
-    //             return $this->sendError('Unauthorized', [], 403);
-    //         }
-    //         $validator = Validator::make($request->all(), [
-    //             'latitude'      => 'string',
-    //             'longitude'     => 'string',
-    //             'mind_text'     => 'string|max:120',
-    //             'selected_level' => 'string|max:100',
-    //             'members'       => 'array|max:3',
-    //             'members.*'     => 'distinct|exists:users,id',
-    //         ]);
-    //         if ($validator->fails()) {
-    //             return $this->sendError('Validation Error', $validator->errors(), 422);
-    //         }
-    //         if ($request->has('selected_level')) {
-    //             $selectedLevel = $request->selected_level;
-    //             preg_match('/(\d+)\((.*?)\)/', $selectedLevel, $matches);
-    //             $level = isset($matches[1]) ? $matches[1] : $padelMatch->level;
-    //             $level_name = isset($matches[2]) ? trim($matches[2]) : $padelMatch->level_name;
-    //         }
-    //         $padelMatch->update([
-    //             'latitude'      => $request->latitude ?? $padelMatch->latitude,
-    //             'longitude'     => $request->longitude ?? $padelMatch->longitude,
-    //             'mind_text'     => $request->mind_text ?? $padelMatch->mind_text,
-    //             'selected_level' => $request->selected_level ?? $padelMatch->selected_level,
-    //             'level'         => $level ?? $padelMatch->level,
-    //             'level_name'    => $level_name ?? $padelMatch->level_name,
-    //         ]);
-    //         if ($request->has('members')) {
-    //             $members = $request->input('members');
-    //             $members[]=auth()->user()->id;
-    //             $padelMatch->members()->sync($members);
-    //         }
-    //         return $this->sendResponse($padelMatch, 'Padel match updated successfully.');
-    //     } catch (\Exception $e) {
-    //         return $this->sendError('An error occurred: ' . $e->getMessage(), [], 500);
-    //     }
-    // }
     public function deletePadelMatch($id)
     {
         $padelMatch = PadelMatch::find($id);

@@ -36,6 +36,7 @@ class FeedbackController extends Controller
                     'user_id' => $member->user->id ?? 'N/A',
                     'full_name' => $member->user->full_name ?? 'N/A',
                     'email' => $member->user->email ?? 'N/A',
+                    'adjust_status' => $member->user->adjust_status ?? 'N/A',
                     'matches_played' => $member->user->matches_played ?? 'N/A',
                     'level' => $member->user->level ?? 'N/A',
                     'level_name' => $member->user->level_name ?? 'N/A',
@@ -75,6 +76,7 @@ class FeedbackController extends Controller
                 'trail_match_id' => $answer->trail_match_id,
                 'user_id' => $answer->user->id,
                 'full_name' => $answer->user->full_name ?? 'N/A',
+                'adjust_status' => $member->user->adjust_status ?? 'N/A',
                 'email' => $answer->user->email ?? 'N/A',
                 'level' => $answer->user->level ?? 'N/A',
                 'matches_played' => $answer->user->matches_played ?? 'N/A',
@@ -166,10 +168,12 @@ class FeedbackController extends Controller
         }
         $user->level += ($action === 'up') ? 1 : -1;
         $user->level_name = $levelNames[$user->level] ?? 'Unknown';
+        $user->adjust_status = $request->adjust_status;
         $user->save();
         return $this->sendResponse([
             'level' => $user->level,
-            'level_name' => $user->level_name
+            'level_name' => $user->level_name,
+            'adjust_status' => $user->adjust_status,
         ], 'User level adjusted successfully.');
     }
 }

@@ -504,6 +504,7 @@ class MessageController extends Controller
     }
     public function getGroupMember($matchId)
     {
+        $user= Auth::user();
         $padelMatch = PadelMatch::find($matchId);
         if (!$padelMatch) {
             return $this->sendError('Match not found.', [], 404);
@@ -516,7 +517,7 @@ class MessageController extends Controller
         if ($groupMembers->isEmpty()) {
             return $this->sendError('No members found for this match.', [], 404);
         }
-        $formattedMembers = $groupMembers->map(function ($member) {
+        $formattedMembers = $groupMembers->where('id','!=',$user->id)->map(function ($member) {
             return [
                 'user_id'    => $member->id,
                 'full_name'  => $member->full_name,
@@ -532,17 +533,11 @@ class MessageController extends Controller
     public function getUserGroup()
     {
         $user = Auth::user();
-
-        // Fetch group IDs where the user is a member
         $groupIds = GroupMember::where('user_id', $user->id)->pluck('group_id');
-
-        // Retrieve groups using the collected group IDs
         $groups = Group::whereIn('id', $groupIds)->with('creator', 'messages')->orderBy('id', 'desc')->get();
-
         if ($groups->isEmpty()) {
             return $this->sendError('No groups found for this user.', [], 404);
         }
-
         $formattedGroups = $groups->map(function ($group) {
             $lastMessage = $group->messages()->latest()->first();
             return [
@@ -561,10 +556,8 @@ class MessageController extends Controller
                 'created_at' => $group->created_at->toDateTimeString(),
             ];
         });
-
         return $this->sendResponse($formattedGroups, 'User groups retrieved successfully.');
     }
-
     public function updateGroup(Request $request, $groupId)
     {
         // $validator = Validator::make($request->all(), [
@@ -708,6 +701,7 @@ class MessageController extends Controller
     }
     public function getGroupMessages($groupId,Request $request)
     {
+        $user = Auth::user();
         $group = Group::with(['messages.sender'])->find($groupId);
         if (!$group) {
             return $this->sendError('Group not found.', [], 404);
@@ -716,6 +710,7 @@ class MessageController extends Controller
         $groupMemberCount = $group->members()->count();
 
         $members = $group->members()->get()
+        ->where('id','!=',$user->id)
         ->map(function ($member) use ($padelMatch) {
             return [
                 'id' => $member->id,
@@ -727,7 +722,6 @@ class MessageController extends Controller
                 'image' => $member->image ? url('Profile/' . $member->image) : url('avatar/profile.jpg'),
             ];
         });
-
         $groupName = $group->name;
         $groupImage = $group->image ? url('uploads/group/' . $group->image) : url('avatar/community.jpg');
         $formattedMessages = $group->messages()
@@ -750,7 +744,6 @@ class MessageController extends Controller
                     'created_at' => $message->created_at->toDateTimeString(),
                 ];
             });
-
         $groupMessages = [
             'messages' => $formattedMessages,
             'group_members' => $groupMemberCount,
@@ -784,16 +777,10 @@ class MessageController extends Controller
                 $errors[] = "User already member of the group.";
                 continue;
             }
-            // $existingInvitation = Invitation::where('group_id', $groupId)
-            //                                 ->where('invited_user_id', $userId)
-            //                                 ->exists();
-            // if ($existingInvitation) {
-            //     $errors[] = "User has already been invited.";
-            //     continue;
-            // }
             $invitation = Invitation::create([
                 'group_id' => $groupId,
                 'invited_user_id' => $userId,
+                'is_accepted' => 0
             ]);
             $invitedUser = User::find($userId);
             if ($invitedUser) {
@@ -810,6 +797,12 @@ class MessageController extends Controller
     }
     public function acceptInvitation(Request $request, $invitationId)
     {
+        $validator = Validator::make($request->all(), [
+            'notify_id' => 'required|string',
+        ]);
+        if ($validator->fails()) {
+            return $this->sendError('Validation Error', $validator->errors(), 422);
+        }
         $invitation = Invitation::where('id', $invitationId)
                                 ->where('invited_user_id', Auth::id())
                                 ->orderBy('id','desc')
@@ -822,9 +815,45 @@ class MessageController extends Controller
             return $this->sendError('You are already a member of this group.');
         }
         $group->members()->attach(Auth::id());
-        $invitation->delete();
+
+        $invitation->is_accepted= 1;
+        $invitation->save();
+        $notifyId = $request->notify_id;
+        if ($notifyId) {
+            $user = Auth::user();
+            $notification = $user->notifications()->find($notifyId);
+
+            if ($notification) {
+                $data = $notification->data;
+                $data['invitation_status'] = 1;
+                $notification->data = $data;
+                $notification->save();
+            }
+        }
         return $this->sendResponse([], 'Invitation accepted successfully.');
     }
+    public function denyInvitation(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'notify_id' => 'required|string',
+        ]);
+        if ($validator->fails()) {
+            return $this->sendError('Validation Error', $validator->errors(), 422);
+        }
+        $notifyId = $request->notify_id;
+        $user = Auth::user();
+        if ($notifyId && $user) {
+            $notification = $user->notifications()->find($notifyId);
+            if ($notification) {
+                $notification->delete();
+                return $this->sendResponse([], 'Successfully denied the invitation.');
+            }
+            return $this->sendError('Notification not found.', [], 404);
+        }
+
+        return $this->sendError('User or notification ID not found.', [], 404);
+    }
+
     public function acceptGroupMemberRequest(Request $request,$matchId)
     {
         $validatedData = $request->validate([
