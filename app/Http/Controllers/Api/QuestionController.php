@@ -46,11 +46,10 @@ class QuestionController extends Controller
                         'user' => [
                             'id' => $feedback->user->id,
                             'full_name' => $feedback->user->full_name,
-                            // 'user_name' => $feedback->user->user_name,
                             'email' => $feedback->user->email,
                             'level' => $feedback->user->level,
                             'level_name' => $feedback->user->level_name,
-                            'image' => $feedback->user->image ? url('Profile/'. $feedback->user->image) : null,
+                            'image' => $feedback->user->image ? url('Profile/'. $feedback->user->image) : url('avatar/profile.jpg'),
                         ],
                         'response_options' => [
                             'ok'=> 'ok',
@@ -61,7 +60,6 @@ class QuestionController extends Controller
                     ];
                 }),
             ];
-
             // Concatenate questions (1 to 8) with question 9
             $allQuestions = $formattedQuestions->push($question9WithFeedback);
 
@@ -70,7 +68,6 @@ class QuestionController extends Controller
             return $this->sendError('An error occurred while fetching data.', [$e->getMessage()], 500);
         }
     }
-
     public function afterMatchQuestion(Request $request, $matchId)
     {
         $match = PadelMatch::find($matchId);
@@ -132,8 +129,6 @@ class QuestionController extends Controller
 
         return $this->sendResponse($response, "Questions retrieved successfully.");
     }
-
-
     public function question(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -146,10 +141,8 @@ class QuestionController extends Controller
         if ($validator->fails()) {
             return $this->sendError("Validation Error", $validator->errors());
         }
-
         $question = new Question();
         $question->question = $request->question;
-
         $options = [
             'A' => [
                 'value' => 1,
@@ -168,7 +161,6 @@ class QuestionController extends Controller
                 'option' => $request->D,
             ],
         ];
-
         $question->options = json_encode($options);
         $question->status= true;
         $question->save();
@@ -181,7 +173,6 @@ class QuestionController extends Controller
             'updated_at' => $question->updated_at,
         ], "Question created successfully.");
     }
-
     public function update(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
@@ -192,16 +183,13 @@ class QuestionController extends Controller
             "D" => "required|string|max:255",
             "status"=> "boolean",
         ]);
-
         if ($validator->fails()) {
             return $this->sendError("Validation Error", $validator->errors());
         }
-
         $question = Question::find($id);
         if (!$question) {
             return $this->sendError("Question not found", [], 404);
         }
-
         if ($request->has('A') || $request->has('B') || $request->has('C') || $request->has('D')) {
             $options = json_decode($question->options, true);
 
@@ -217,7 +205,6 @@ class QuestionController extends Controller
             if ($request->has('D')) {
                 $options['D']['option'] = $request->D;
             }
-
             $question->options = json_encode($options);
         }
         $question->question = $request->question;

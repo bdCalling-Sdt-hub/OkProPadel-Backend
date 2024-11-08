@@ -27,4 +27,5 @@ class AfterMatchQuestionAnswer extends Model
         return $this->belongsTo(Questionnaire::class, 'questionnaire_id');
     }
 
+
 }

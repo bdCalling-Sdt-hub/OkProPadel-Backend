@@ -19,7 +19,7 @@ class MatchAcceptedNotification extends Notification
     public function __construct($match, $user)
     {
         $this->match = $match;
-        $this->user = $user; 
+        $this->user = $user;
     }
 
     public function via($notifiable)
@@ -31,6 +31,7 @@ class MatchAcceptedNotification extends Notification
         return [
             'message' => "{$this->user->full_name} has accepted the match",
             'match_id' => $this->match->id,
+            'image' => $this->user->image ? url('Profile/',$this->user->image) : url('avatar/profile.jpg')
         ];
     }
 }

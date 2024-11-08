@@ -23,7 +23,6 @@ class UserManagementController extends Controller
         if ($users->isEmpty()) {
             return $this->sendError('No users found.', [], 404);
         }
-
         $formattedUsers = $users->map(function ($user) {
             return [
                 'id' => $user->id,
@@ -35,10 +34,8 @@ class UserManagementController extends Controller
                 'level' => $user->level,
             ];
         });
-
         return $this->sendResponse(['users' => $formattedUsers], 'Users retrieved successfully.');
     }
-
 
     public function userDetails($userId)
     {
@@ -63,19 +60,18 @@ class UserManagementController extends Controller
         ];
         return $this->sendResponse($userDetails, 'User details retrieved successfully.');
     }
-
-    public function deleteUser(Request $request,$userId)
+    public function deleteUser(Request $request, $userId)
     {
         $user = User::find($userId);
-        if(!$user){
-            return $this->sendError("No user found.");
+        if (!$user) {
+            return $this->sendError("No user found.", [], 404);
         }
         if (auth()->user()->role !== 'ADMIN') {
             return $this->sendError("Unauthorized action.", [], 403);
         }
-        $user->delete();
         PadelMatch::where('creator_id', $userId)->delete();
-        return $this->sendResponse([],"Usser successfully deleted.");
+        $user->delete();
+        return $this->sendResponse([], "User successfully deleted.");
     }
     public function changeRole(Request $request,$userId)
     {
@@ -97,7 +93,7 @@ class UserManagementController extends Controller
     public function getUsers()
     {
         try {
-            $users = User::orderBy("created_at", "desc")->paginate(10);
+            $users = User::where('role','MEMBER')->orderBy("created_at", "desc")->paginate(10);
             $formattedUsers = $users->map(function ($user) {
                 return [
                     'id' => $user->id,

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AfterMatchQuestionAnswer;
 use App\Models\AnswerTrailMatchQuestion;
+use App\Models\Group;
 use App\Models\PadelMatch;
 use App\Models\PadelMatchMemberHistory;
 use App\Models\Questionnaire;
@@ -20,35 +21,36 @@ class FeedbackController extends Controller
 {
     public function normalMatchFeedback()
     {
-        $padelMatches = PadelMatch::where('status', 'ended')->with('creator')->get();
-        $matchIds = $padelMatches->pluck('id')->toArray();
+        $padelMatches = PadelMatch::where('status', 'ended')->with(['creator'])->get();
+        $matchIds = $padelMatches->pluck(['id'])->toArray();
 
         $padelGames = AfterMatchQuestionAnswer::whereIn('match_id', $matchIds)
                         ->with(['match.creator', 'user'])
                         ->get();
-        $chunkedGames = $padelGames->chunk(4);
-        $formattedData = $chunkedGames->map(function ($chunk) {
-            return $chunk->map(function ($member) {
-                $isCreator = $member->match->creator->id === $member->user->id;
-                return [
-                    'id' => $member->id,
-                    'match_id' => $member->match_id,
-                    'user_id' => $member->user->id ?? 'N/A',
-                    'full_name' => $member->user->full_name ?? 'N/A',
-                    'email' => $member->user->email ?? 'N/A',
-                    'adjust_status' => $member->user->adjust_status ?? 'N/A',
-                    'matches_played' => $member->user->matches_played ?? 'N/A',
-                    'level' => $member->user->level ?? 'N/A',
-                    'level_name' => $member->user->level_name ?? 'N/A',
-                    'image' => $member->user->image ? url('Profile/' . $member->user->image) : null,
-                    'creator_name' => $isCreator ? $member->match->creator->full_name : false,
-                    'questionnaire' => $this->getQuestionnaireDetailsWithAnswers(
-                        json_decode($member->questionnaire_id, true),
-                        json_decode($member->answer, true)
-                    ),
-                ];
-            });
-        });
+        $formattedData = $padelGames->map(function ($member) {
+        $group = Group::where('match_id',$member->match_id)->first();
+            return [
+                'id' => $member->id,
+                'match_id' => $member->match_id,
+                'group' => $group->name,
+                'group_image' => $group->image ? url('uploads/group/',$group->image) : url('avatar/profile.jpg'),
+                'creator_name' => $member->match->creator->full_name,
+                'user_id' => $member->user->id ?? 'N/A',
+                'full_name' => $member->user->full_name ?? 'N/A',
+                'email' => $member->user->email ?? 'N/A',
+                'image' => /* $member->user->image ? url('Profile/',$member->user->image) : */ url('avatar/profile.jpg'),
+
+
+                'adjust_status' => $member->user->adjust_status ?? 'N/A',
+                'matches_played' => $member->user->matches_played ?? 'N/A',
+                'level' => $member->user->level ?? 'N/A',
+                'level_name' => $member->user->level_name ?? 'N/A',
+                'questionnaire' => $this->getQuestionnaireDetailsWithAnswers(
+                    json_decode($member->questionnaire_id, true),
+                    json_decode($member->answer, true)
+                ),
+            ];
+        })->toArray();
         return $this->sendResponse($formattedData, 'Successfully retrieved data.');
     }
     private function getQuestionnaireDetailsWithAnswers($questionnaireIds, $answers)
@@ -80,7 +82,7 @@ class FeedbackController extends Controller
                 'email' => $answer->user->email ?? 'N/A',
                 'level' => $answer->user->level ?? 'N/A',
                 'matches_played' => $answer->user->matches_played ?? 'N/A',
-                'profile' => $answer->user->image ? url('Profile/' . $answer->user->image) : null,
+                'profile' => $answer->user->image ? url('Profile/' . $answer->user->image) : url('avatar/profile'),
                 'trail_match_question_answers' => $this->getTrailMatchQuestionnaireDetailsWithAnswers(
                             json_decode($answer->trail_match_question_id, true),
                             json_decode($answer->answer, true)
@@ -141,7 +143,7 @@ class FeedbackController extends Controller
     }
     public function adjustLevel(Request $request, $userId)
     {
-        Log::info('Request Payload:', $request->all());
+        // Log::info('Request Payload:', $request->all());
         $validator = Validator::make($request->all(), [
             'action' => 'required|in:up,down',
         ]);

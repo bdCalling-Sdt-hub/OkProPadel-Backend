@@ -14,12 +14,14 @@ class PadelMatchMemberAdded extends Notification
     protected $match;
     protected $addedBy;
     protected $group;
+    protected $padelMatchMember;
 
-    public function __construct($group,$match, $addedBy)
+    public function __construct($group,$match, $addedBy, $padelMatchMember)
     {
         $this->match = $match;
         $this->addedBy = $addedBy;
         $this->group = $group;
+        $this->padelMatchMember = $padelMatchMember;
     }
 
     public function via($notifiable)
@@ -32,8 +34,9 @@ class PadelMatchMemberAdded extends Notification
         return [
             'message' => "You have been added to a match by {$this->addedBy->full_name} from {$this->group}.",
             'match_id' => $this->match->id,
+            'match_member' => $this->match->id,
             'group'=> $this->group,
-            // 'image'=> $this->group->image,
+            'status'=> $this->padelMatchMember->isApproved
         ];
     }
 }

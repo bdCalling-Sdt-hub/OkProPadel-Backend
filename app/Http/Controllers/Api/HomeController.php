@@ -163,23 +163,22 @@ class HomeController extends Controller
             $homePage = [
                 'upcomingMatch' => $this->upcommingMatch(),
                 'nearbyClubs' => $this->nearByClubs($user),
-                // 'notificationCount'=>$this->notificationCount($user)
+                'notificationCount'=>$this->notificationCount($user)
             ];
             return $this->sendResponse($homePage, "Nearby clubs retrieved successfully.");
         } catch (\Exception $e) {
             return $this->sendError('Errors', $e->getMessage(), 500);
         }
     }
-    // private function notificationCount($user)
-    // {
-    //     $notificationCount = $notifications->count();
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'count' => $notificationCount,
-    //         'data' => $notifications,
-    //     ]);
-    // }
+    private function notificationCount($user)
+    {
+        $notifications = $user->notifications;
+        $notificationCount = $notifications->whereNull('read_at')->count();
+        return [
+            'success' => true,
+            'count' => $notificationCount,
+        ];
+    }
     private function upcommingMatch()
     {
         $user = Auth::user();

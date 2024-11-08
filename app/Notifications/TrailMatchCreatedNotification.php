@@ -28,7 +28,8 @@ class TrailMatchCreatedNotification extends Notification
         return [
             'trail_match_id' => $this->trailMatch->id,
             'user_id' => $this->user->id,
-            'message' => 'Welcome,Your trail match has been created.',
+            'full_name' => $this->user->full_name,
+            'message' => "{$this->user->full_name} Welcome,Your trail match has been created.",
         ];
     }
 }

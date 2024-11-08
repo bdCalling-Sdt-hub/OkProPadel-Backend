@@ -66,7 +66,6 @@ class FaqController extends Controller
         if (!$faq) {
             return $this->sendError('FAQ not found.', [], 404);
         }
-
         $faq->delete();
         return $this->sendResponse([], 'FAQ deleted successfully.');
     }

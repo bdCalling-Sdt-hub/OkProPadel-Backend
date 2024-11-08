@@ -11,84 +11,62 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Mail;
-
+use Illuminate\Support\Str;
 class AuthController extends Controller
 {
     public function socialLogin(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'full_name' => 'required',
-            'email' => 'required|email|max:100',
+            'full_name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'google_id' => 'string|nullable',
+            'facebook_id' => 'string|nullable',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
         $existingUser = User::where('email', $request->email)->first();
         if ($existingUser) {
-            if (is_null($existingUser->google_id) && is_null($existingUser->facebook_id)) {
-                return response()->json([
-                    'message' => 'User already exists. Sign in manually.',
-                ], 422);
-            }
-            if ($token = auth()->login($existingUser)) {
+            $socialMatch = ($request->has('google_id') && $existingUser->google_id === $request->google_id) ||
+                           ($request->has('facebook_id') && $existingUser->facebook_id === $request->facebook_id);
+            if ($socialMatch) {
+                Auth::login($existingUser);
+                $token = $existingUser->createToken('authToken')->plainTextToken;
+                return $this->responseWithToken($token);
+            } elseif (is_null($existingUser->google_id) && is_null($existingUser->facebook_id)) {
+                return response()->json(['message' => 'User already exists. Sign in manually.'], 422);
+            } else {
+                $existingUser->update([
+                    'google_id' => $request->google_id ?? $existingUser->google_id,
+                    'facebook_id' => $request->facebook_id ?? $existingUser->facebook_id,
+                ]);
+                Auth::login($existingUser);
+                $token = $existingUser->createToken('authToken')->plainTextToken;
                 return $this->responseWithToken($token);
             }
-            return response()->json(['message' => 'User unauthorized'], 401);
         }
         $user = User::create([
-            'name' => $request->name,
+            'full_name' => $request->full_name,
             'email' => $request->email,
+            'password' => Hash::make(Str::random(16)),
             'role' => 'MEMBER',
             'google_id' => $request->google_id ?? null,
             'facebook_id' => $request->facebook_id ?? null,
             'latitude' => $request->latitude ?? null,
             'longitude' => $request->longitude ?? null,
-            'is_verified' => 1,
-            'image' => $request->image ?? null,
+            'status' => 'active',
         ]);
-        if ($token = auth()->login($user)) {
-            return $this->responseWithToken($token);
-        }
-        return response()->json(['message' => 'User unauthorized'], 401);
+        Auth::login($user);
+        $token = $user->createToken('authToken')->plainTextToken;
+        return $this->responseWithToken($token);
     }
     protected function responseWithToken($token)
     {
-        $user = auth()->user();
-
-        return response()->json([
-            'status' => true,
-            'access_token' => $token,
-            'user_id' => $user->id,
-            'role' => $user->role,
-            'google_id' => $user->google_id,
-            'facebook_id' => $user->facebook_id,
-            'token_type' => 'bearer',
-            'user' => $user,
-            'expires_in' => auth()->factory()->getTTL() * 60,
-        ], 200);
+        return $this->sendResponse($token, 'User logged in successfully.');
     }
 
-    public function getUserName(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'query' => 'required|string|min:1',
-        ]);
-        if ($validator->fails()) {
-            return $this->sendError('Validation Error', $validator->errors(), 422);
-        }
-        $query = $request->query('query');
-        $members = User::whereRaw('LOWER(user_name) = ?', [strtolower($query)])->get()
-        ->map(function ($member) {
-            return [
-                'user_id'   => $member->id,
-                // 'user_name' => $member->user_name,
-            ];
-        });
-        if ($members->isEmpty()) {
-            return $this->sendError('No members found matching your query.', [], 404);
-        }
-        return $this->sendResponse($members, 'Members retrieved successfully.');
-    }
     public function validateToken(Request $request)
     {
         if (Auth::check()) {

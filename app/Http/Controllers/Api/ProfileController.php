@@ -39,7 +39,6 @@ class ProfileController extends Controller
     }
     public function getGameStatusTrailMatch( $id)
     {
-
         $tarilmatch = TrailMatch::find($id);
         if(!$tarilmatch){
             return $this->sendError('Not foun trail match.');
@@ -48,7 +47,6 @@ class ProfileController extends Controller
     }
     public function TrailMatchStatus($trailMatchId)
     {
-
         $trailMatch = TrailMatch::find($trailMatchId);
         if (!$trailMatch) {
             return $this->sendError('No trail match found.');
@@ -65,11 +63,12 @@ class ProfileController extends Controller
     }
     public function acceptTrailMatch(Request $request)
     {
-        $request->validate([
-            'trail_match_id' => 'required|exists:trail_matches,id',
-        ]);
         $trailMatch = TrailMatch::find($request->trail_match_id);
-        $trailMatch->status = 1;
+        if(!$trailMatch)
+        {
+            return $this->sendError("Trail Match not found.");
+        }
+        $trailMatch->status = true;
         $trailMatch->save();
         $volunteerIds = json_decode($trailMatch->volunteer_id, true);
         $this->notifyUsers($trailMatch, $volunteerIds, 'Trail Match Accepted', "{$trailMatch->user->full_name} has accepted the trail match.");
@@ -104,7 +103,7 @@ class ProfileController extends Controller
     public function TrailMatchDetails()
     {
         $user = Auth::user();
-        $trailMatches = TrailMatch::where('user_id', $user->id)->get();
+        $trailMatches = TrailMatch::where('user_id', $user->id)->where('status',1)->orderBy('id','desc')->get();
         if ($trailMatches->isEmpty()) {
             return $this->sendError('No trail matches found.', [], 404);
         }
@@ -144,13 +143,23 @@ class ProfileController extends Controller
     {
         $user = Auth::user();
         $requestTrailMatch = RequestTrailMacth::where("user_id", $user->id)
-            ->where("status", "request")
             ->orderBy('id', 'desc')
             ->first();
-        if (!$requestTrailMatch) {
-            return $this->sendError("No request found.", [], 404);
-        }
-        return $this->sendResponse($requestTrailMatch, 'Request retrieved successfully.');
+            if (!$requestTrailMatch) {
+                return response()->json([
+                    'message' => 'No request found.',
+                    "data"=>[]
+                ], 404);
+            }
+            if($requestTrailMatch->status =='approved'){
+                $trailMatch = TrailMatch::where('request_id',$requestTrailMatch->id)->first();
+            }
+        return $this->sendResponse(
+            [
+                'requestTrailMatch' => $requestTrailMatch,
+                'trailMatch' => $trailMatch->id ?? "N/A",
+            ],
+            'Request retrieved successfully.');
     }
     public function requestToTrailMatch(Request $request)
     {

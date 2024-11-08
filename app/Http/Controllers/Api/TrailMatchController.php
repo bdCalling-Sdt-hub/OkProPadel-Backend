@@ -26,6 +26,7 @@ class TrailMatchController extends Controller
             return [
                 'request_id' => $request->id,
                 'user' =>[
+                    'id'=>$request->user->id,
                     'full_name'=>$request->user->full_name,
                     'email'=>$request->user->email,
                     'location'=>$request->user->location,
@@ -53,7 +54,6 @@ class TrailMatchController extends Controller
             'time' => 'required',
             'date' => 'required|date',
         ]);
-
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
@@ -69,16 +69,14 @@ class TrailMatchController extends Controller
         if (!$userId) {
             return $this->sendError('Authentication required.', [], 401);
         }
-
-
         $trailMatch = TrailMatch::where('request_id',$requestId)->first();
         if ($trailMatch) {
             $trailMatch->update([
                 'user_id' => $userId,
-                'club_id' => $request->club_id,
-                'date' => $request->date,
+                'club_id' => $request->club_id ?? $trailMatch->club_id,
+                'date' => $request->date ?? $trailMatch->data,
                 'volunteer_id' => json_encode($request->volunteer_ids),
-                'time' => $request->time,
+                'time' => $request->time ?? $trailMatch->time,
             ]);
         } else {
             $trailMatch = TrailMatch::create([

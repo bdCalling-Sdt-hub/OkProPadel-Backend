@@ -29,14 +29,9 @@ class PadelMatchController extends Controller
             return $this->sendError('An error occurred: ' . $e->getMessage(), [], 500);
         }
     }
-    public function members($groupId)
+    public function members()
     {
         try {
-            $group = Group::find($groupId);
-            if (!$group) {
-                return $this->sendError('Group not found.');
-            }
-            $userIds = $group->members()->get()->pluck('id')->toArray();
             $user = Auth::user();
             if (!$user) {
                 return $this->sendError("No user found.");
@@ -46,8 +41,7 @@ class PadelMatchController extends Controller
             }
             $latitude = $user->latitude;
             $longitude = $user->longitude;
-            $members = User::whereNotIn('id', $userIds)
-                ->selectRaw("
+            $members = User::selectRaw("
                     id, full_name, level, level_name, image, latitude, longitude,
                     (6371 * acos(cos(radians(?)) * cos(radians(latitude))
                     * cos(radians(longitude) - radians(?))
@@ -169,6 +163,8 @@ class PadelMatchController extends Controller
                     $member->notify(new PadelMatchCreatedNotification($padelMatch,Auth::user()));
                 }
             }
+            $admin = User::where('role','ADMIN')->first();
+            $admin->notify(new PadelMatchCreatedNotification($padelMatch,Auth::user()));
             return $this->sendResponse($padelMatch, 'Padel match and group created successfully.');
 
         } catch (\Exception $e) {

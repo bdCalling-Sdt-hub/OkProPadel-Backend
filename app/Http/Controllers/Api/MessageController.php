@@ -13,10 +13,11 @@ use App\Models\PadelMatch;
 use App\Models\PadelMatchMember;
 use App\Models\PadelMatchMemberHistory;
 use App\Models\PrivateMessage;
+use App\Models\TrailMatch;
 use App\Models\User;
+use App\Notifications\AcceptInvitationNotification;
 use App\Notifications\EndMatchNotification;
 use App\Notifications\GroupInvitationNotification;
-use App\Notifications\GroupMessageNotification;
 use App\Notifications\JoinRequestAcceptedNotification;
 use App\Notifications\MatchAcceptedNotification;
 use App\Notifications\MemberMessageNotification;
@@ -39,9 +40,58 @@ class MessageController extends Controller
     {
         return $this->padelMatchController->searchMember($request);
     }
-    public function members()
+    public function getInviteMembers($groupId)
     {
-        return $this->padelMatchController->members();
+        try {
+            $group = Group::find($groupId);
+            if (!$group) {
+                return $this->sendError('Group not found.');
+            }
+            $userIds = $group->members()->get()->pluck('id')->toArray();
+            $user = Auth::user();
+            if (!$user) {
+                return $this->sendError("No user found.");
+            }
+            if (is_null($user->latitude) || is_null($user->longitude)) {
+                return $this->sendError("User location is not available.");
+            }
+            $latitude = $user->latitude;
+            $longitude = $user->longitude;
+            $members = User::whereNotIn('id', $userIds)
+                ->selectRaw("
+                    id, full_name, level, level_name, image, latitude, longitude,
+                    (6371 * acos(cos(radians(?)) * cos(radians(latitude))
+                    * cos(radians(longitude) - radians(?))
+                    + sin(radians(?)) * sin(radians(latitude)))) AS distance
+                ", [$latitude, $longitude, $latitude])
+                ->where('status', 'active')
+                ->where('role', 'MEMBER')
+                ->where('id', '!=', $user->id)
+                ->having('distance', '<=', 10)
+                ->orderBy('distance', 'ASC')
+                ->get();
+
+            if ($members->isEmpty()) {
+                return $this->sendError('No members found within 10 km.');
+            }
+            $formattedMembers = $members->map(function ($member) {
+                return [
+                    'id' => $member->id,
+                    'full_name' => $member->full_name,
+                    'level' => $member->level,
+                    'level_name' => $member->level_name,
+                    'image' => $member->image ? url('Profile/' . $member->image) : url('avatar/profile.jpg'),
+                    'distance' => round($member->distance, 2) . ' km',
+                ];
+            });
+            $formattedResponse = [
+                'total_members' => $members->count(),
+                'members' => $formattedMembers,
+            ];
+            return $this->sendResponse($formattedResponse, 'Nearby members retrieved successfully.');
+        } catch (\Exception $e) {
+            return $this->sendError('An error occurred: ' . $e->getMessage(), [], 500);
+        }
     }
     public function activeGroup($matchId)
     {
@@ -173,17 +223,15 @@ class MessageController extends Controller
         }
         return $this->sendResponse([], 'Game ended successfully.');
     }
-    public function gameStatus($matchId)
+    public function gameStatus($MatchId)
     {
-        $padelMatch = PadelMatch::find($matchId);
+        $padelMatch = PadelMatch::find($MatchId);
         if (!$padelMatch) {
             return $this->sendError('Match not found.', [], 404);
         }
         $status = [
             'match_id' => $padelMatch->id,
-            'status' => $padelMatch->status,
-            'started_at' => $padelMatch->started_at,
-            'ended_at' => $padelMatch->ended_at,
+            'status' => $padelMatch->status ?? "wait for game start",
         ];
         return $this->sendResponse($status, 'Game status retrieved successfully.');
     }
@@ -221,20 +269,32 @@ class MessageController extends Controller
         if (!$padelMatch) {
             return $this->sendError('Match not found.', [], 404);
         }
-        $membersStatus = $padelMatch->members()->get()->map(function ($member) {
-            return [
-                'user_id'    => $member->id,
-                'full_name'  => $member->full_name,
-                // 'user_name'  => $member->user_name,
-                'image'      => $member->image ? url('Profile'. $member->image) : null,
-                'is_approved'=> $member->isApproved ? true : false,
-            ];
-        });
+
+        $membersStatus = PadelMatchMember::where('padel_match_id', $matchId)
+            ->where('user_id', '!=', auth()->user()->id)
+            ->orderBy('id', 'desc')
+            ->take(4)
+            ->get()
+            ->map(function ($member) {
+                return [
+                    'id'            => $member->id,
+                    'user_id'       => $member->user->id,
+                    'full_name'     => $member->user->full_name,
+                    'email'         => $member->user->email,
+                    'level'         => $member->user->level,
+                    'level_name'    => $member->user->level_name,
+                    'matches_played'=> $member->user->matches_played,
+                    'image'         => $member->user->image ? url('Profile/' . $member->user->image) : url('avatar/profile.jpg'),
+                    'is_approved'   => $member->isApproved ? true : false,
+                ];
+            });
+
         if ($membersStatus->isEmpty()) {
             return $this->sendError('No members found for this match.', [], 404);
         }
         return $this->sendResponse($membersStatus, 'Members status retrieved successfully.');
     }
+
     public function userPrivateMessageMember()
     {
         $userId = Auth::id();
@@ -421,62 +481,82 @@ class MessageController extends Controller
     public function leaveGroup(Request $request)
     {
         $user = Auth::user();
-        $groupId = $request->input('group_id');
-        $isMember = Group::where('group_id', $groupId)
+        $validator = Validator::make($request->all(), [
+            'group_id' => 'required|exists:groups,id',
+        ]);
+        if ($validator->fails()) {
+            return $this->sendError('Validation Error', $validator->errors(), 400);
+        }
+        $groupId = $request->group_id;
+        $isMember = GroupMember::where('group_id', $groupId)
             ->where('user_id', $user->id)
             ->exists();
         if (!$isMember) {
             return $this->sendError('You are not a member of this group.', 404);
         }
-        Group::where('group_id', $groupId)
+        GroupMember::where('group_id', $groupId)
             ->where('user_id', $user->id)
             ->delete();
-
         return $this->sendResponse([], 'Successfully left the group.');
     }
     public function PadelMatchMemberAdd(Request $request, $matchId)
     {
+        // Validate the incoming request
         $validator = Validator::make($request->all(), [
             'user_ids' => 'required|array',
             'user_ids.*' => 'exists:users,id',
         ]);
+
         if ($validator->fails()) {
             return $this->sendError('Validation Error', $validator->errors(), 422);
         }
+
+        // Check if match ID is provided
         if (!$matchId) {
             return $this->sendError('Match ID not found.', [], 404);
         }
+
+        // Find the specified padel match
         $padelMatch = PadelMatch::find($matchId);
         if (!$padelMatch) {
             return $this->sendError('Match not found.', [], 404);
         }
+
         $members = $request->user_ids;
         $authId = auth()->user()->id;
+
+        // Ensure the authenticated user is included in the members
         if (!in_array($authId, $members)) {
-            $members[] = auth()->user()->id;
+            $members[] = $authId;
         }
-        if (count($members) !== 4 && array_unique($members)) {
-            return $this->sendError('You must select exactly 3 members for the match..', [], 400);
+
+        // Check that exactly 4 unique members are selected
+        if (count(array_unique($members)) !== 4) {
+            return $this->sendError('You must select exactly 3 members for the match.', [], 400);
         }
+
+        // Clear previous members for the match
         PadelMatchMember::where('padel_match_id', $padelMatch->id)->delete();
+
+        // Add the new members
         foreach ($members as $userId) {
-                PadelMatchMember::create([
-                    'padel_match_id' => $padelMatch->id,
-                    'user_id' => $userId,
-                    'isApproved' => $userId === $authId,
-                ]);
-        }
-        $padelMatch->status = null;
-        $padelMatch->save();
-        foreach($request->user_ids as $userId) {
+            $padelMatchMember = PadelMatchMember::create([
+                'padel_match_id' => $padelMatch->id,
+                'user_id' => $userId,
+                'isApproved' => $userId === $authId,
+            ]);
+
             $user = User::find($userId);
             $group = Group::where('match_id', $matchId)->first();
             if ($group) {
-                $user->notify(new PadelMatchMemberAdded($group->name, $padelMatch, Auth::user()));
+                $user->notify(new PadelMatchMemberAdded($group->name, $padelMatch, Auth::user(),$padelMatchMember));
             }
         }
+        $padelMatch->status = null;
+        $padelMatch->save();
         return $this->sendResponse([], 'Members added to the match successfully.');
     }
+
     public function acceptPadelMatch(Request $request, $matchId)
     {
         $padelMatch = PadelMatch::find($matchId);
@@ -492,7 +572,6 @@ class MessageController extends Controller
         $member = PadelMatchMember::where('padel_match_id', $padelMatch->id)
             ->where('user_id', auth()->user()->id)
             ->first();
-
         if (!$member) {
             return $this->sendError('User is not a member of this match.', [], 404);
         }
@@ -500,6 +579,19 @@ class MessageController extends Controller
         $member->save();
         $creator = $padelMatch->creator;
         $creator->notify(new MatchAcceptedNotification($padelMatch,Auth::user()));
+
+        $notifyId = $request->notify_id;
+        if ($notifyId) {
+            $user = Auth::user();
+            $notification = $user->notifications()->find($notifyId);
+            if ($notification) {
+                $data = $notification->data;
+                $data['status'] = true;
+                $notification->data = $data;
+                $notification->save();
+            }
+        }
+
         return $this->sendResponse([], 'Padel match accepted successfully.');
     }
     public function getGroupMember($matchId)
@@ -554,9 +646,15 @@ class MessageController extends Controller
                     'sent_at' => $lastMessage->created_at->toDateTimeString(),
                 ] : null,
                 'created_at' => $group->created_at->toDateTimeString(),
-            ];
+                ];
+
         });
-        return $this->sendResponse($formattedGroups, 'User groups retrieved successfully.');
+
+        return $this->sendResponse(
+            ['data'=>$formattedGroups,
+            'user_id' =>$user->id,
+            ]
+            ,'User groups retrieved successfully.');
     }
     public function updateGroup(Request $request, $groupId)
     {
@@ -822,7 +920,6 @@ class MessageController extends Controller
         if ($notifyId) {
             $user = Auth::user();
             $notification = $user->notifications()->find($notifyId);
-
             if ($notification) {
                 $data = $notification->data;
                 $data['invitation_status'] = 1;
@@ -830,9 +927,10 @@ class MessageController extends Controller
                 $notification->save();
             }
         }
+        $group->creator->notify(new AcceptInvitationNotification(Auth::user()));
         return $this->sendResponse([], 'Invitation accepted successfully.');
     }
-    public function denyInvitation(Request $request)
+    public function denyRequest(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'notify_id' => 'required|string',
@@ -846,11 +944,10 @@ class MessageController extends Controller
             $notification = $user->notifications()->find($notifyId);
             if ($notification) {
                 $notification->delete();
-                return $this->sendResponse([], 'Successfully denied the invitation.');
+                return $this->sendResponse([], 'Successfully denied or rejeted.');
             }
             return $this->sendError('Notification not found.', [], 404);
         }
-
         return $this->sendError('User or notification ID not found.', [], 404);
     }
 

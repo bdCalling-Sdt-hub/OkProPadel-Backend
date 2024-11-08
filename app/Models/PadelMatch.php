@@ -36,8 +36,9 @@ class PadelMatch extends Model
         return $this->hasMany(PadelMatchMemberHistory::class, 'padel_match_id');
     }
 
-
-
-
+    public function group()
+    {
+        $this->belongsTo(Group::class);
+    }
 
 }

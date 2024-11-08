@@ -32,7 +32,6 @@ Route::group(['controller' => AuthController::class,], function () {
     Route::get('/get-user-name', 'getUserName')->withoutMiddleware('auth:sanctum');
 
     Route::post('social-login', 'socialLogin')->withoutMiddleware(['auth:sanctum','member']);
-    // Route::get('google-facebook', 'facebookLogin')->withoutMiddleware('auth:sanctum');
 
     Route::post('/logout', 'logout')->middleware(['auth:sanctum','member']);
     Route::get('/users', 'users')->middleware(['auth:sanctum','member']);
@@ -65,7 +64,7 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => AnswerC
 });
 Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => PadelMatchController::class], function () {
     Route::get('level-with-level-name', 'levelWithLevelName');
-    Route::get('members/{groupId}', 'members');
+    Route::get('members', 'members');
     Route::get('search-member', 'searchMember');
 
     Route::post('padel-match-create','padelMatchCreate');
@@ -86,10 +85,10 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Message
     Route::get('group-message/{groupId}', 'getGroupMessages');
 
     Route::get('search-member', 'searchMember');
-    Route::get('members', 'members');
+    Route::get('get-inivite-members/{groupId}', 'getInviteMembers');
     Route::post('group-invite/{groupId}',  'inviteMembers');
     Route::post('group-invitation-accept/{invitationId}','acceptInvitation');
-    Route::post('group-invitation-deny/{invitationId}','denyInvitation');
+    Route::post('deny-request','denyRequest');
     Route::get('get-group-member/{matchId}', 'getGroupMember');
     Route::post('add-member/{matchId}', 'PadelMatchMemberAdd');
     Route::put('accept-padel-match/{matchId}','acceptPadelMatch');
@@ -99,7 +98,7 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Message
 
     Route::put('start-game','startGame');
     Route::put('end-game','endGame');
-    Route::get('game-status/{matchId}', 'gameStatus');
+    Route::get('game-status/{MatchId}', 'gameStatus');
 
     Route::get('user-private-message-member', 'UserPrivateMessageMember');
     Route::post('member-private-message/{userId}', 'MemberMessage');
