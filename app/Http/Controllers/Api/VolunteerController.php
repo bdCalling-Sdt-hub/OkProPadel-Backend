@@ -10,23 +10,34 @@ use Illuminate\Support\Facades\Validator;
 
 class VolunteerController extends Controller
 {
-    public function updateVolunterRole(Request $request,$id)
+    public function updateVolunteerRole(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
             "role" => "required|string",
         ]);
-
         if ($validator->fails()) {
             return $this->sendError("Validation Errors", $validator->errors());
         }
-        $volunter = Volunteer::find($id);
-        if(!$volunter){
-            return $this->sendError("Not found volunter.");
+        $volunteer = Volunteer::find($id);
+        if (!$volunteer) {
+            return $this->sendError("Volunteer not found.");
         }
-        $volunter->role = $request->role;
-        $volunter->save();
-        return $this->sendResponse([],"Role successfully updated.");
+        $roleLevels = [
+            'Beginner' => 1,
+            'Lower-Intermediate' => 2,
+            'Upper-Intermediate' => 3,
+            'Advanced' => 4,
+            'Professional' => 5,
+        ];
+        if (!array_key_exists($request->role, $roleLevels)) {
+            return $this->sendError("Invalid role provided.");
+        }
+        $volunteer->role = $request->role;
+        $volunteer->level = $roleLevels[$request->role];
+        $volunteer->save();
+        return $this->sendResponse([], "Role and level successfully updated.");
     }
+
     public function index(Request $request)
     {
         $volunteers = Volunteer::where('status', true)

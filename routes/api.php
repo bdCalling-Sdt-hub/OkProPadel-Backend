@@ -163,7 +163,6 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Questio
     Route::post('/feedback', 'storeFeedback');
     Route::post('/after-match-question/{matchId}', 'afterMatchQuestion'); //user use
     Route::get('/match-member/{matchId}', 'matchMember'); //user use
-
 });
 Route::group(['middleware' => ['auth:sanctum','admin'], 'controller' => TrailMatchController::class], function () {
     Route::get('request-match', 'requestMatch');

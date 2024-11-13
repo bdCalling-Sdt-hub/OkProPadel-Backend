@@ -27,8 +27,11 @@ class TrailMatchCreatedNotification extends Notification
     {
         return [
             'trail_match_id' => $this->trailMatch->id,
+            'time' => $this->trailMatch->time,
+            'date' => $this->trailMatch->date,
             'user_id' => $this->user->id,
             'full_name' => $this->user->full_name,
+            'image' => $this->user->image? url('Profile/',$this->user->image) : url('avatar/profile.jpg'),
             'message' => "{$this->user->full_name} Welcome,Your trail match has been created.",
         ];
     }

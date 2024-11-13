@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('question');
             $table->string('options');
             $table->boolean('status')->default(true);
+            $table->string('question_es')->nullable();
             $table->timestamps();
         });
     }

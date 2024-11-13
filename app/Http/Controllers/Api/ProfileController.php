@@ -103,7 +103,8 @@ class ProfileController extends Controller
     public function TrailMatchDetails()
     {
         $user = Auth::user();
-        $trailMatches = TrailMatch::where('user_id', $user->id)->where('status',1)->orderBy('id','desc')->get();
+        //$trailMatches = TrailMatch::where('user_id', $user->id)->where('status',1)->orderBy('id','desc')->get();
+        $trailMatches = TrailMatch::where('user_id', $user->id)->orderBy('id','desc')->get();
         if ($trailMatches->isEmpty()) {
             return $this->sendError('No trail matches found.', [], 404);
         }
@@ -113,10 +114,11 @@ class ProfileController extends Controller
                 return [
                     'id' => $volunteer->id,
                     'name' => $volunteer->name,
+                    'role' => $volunteer->role,
                     'phone_number' => $volunteer->phone_number,
                     'image' => $volunteer->image
                         ? url('uploads/volunteers/', $volunteer->image)
-                        : null,
+                        : url('avatar/profile.jpg'),
                 ];
             });
             $user = $trailMatch->user;
@@ -126,7 +128,7 @@ class ProfileController extends Controller
                 'full_name' => $user->full_name,
                 'image' => $user->image
                     ? url('Profile/', $user->image)
-                    : null,
+                    : url('avatar/profile.jpg'),
                 'level' => $user->level,
                 'level_name' => $user->level_name,
                 'club_name' => $club ? $club->club_name : 'No club',

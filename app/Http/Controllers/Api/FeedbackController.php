@@ -78,9 +78,10 @@ class FeedbackController extends Controller
                 'trail_match_id' => $answer->trail_match_id,
                 'user_id' => $answer->user->id,
                 'full_name' => $answer->user->full_name ?? 'N/A',
-                'adjust_status' => $member->user->adjust_status ?? 'N/A',
+                'adjust_status' => $answer->user->adjust_status ?? 'N/A',
                 'email' => $answer->user->email ?? 'N/A',
                 'level' => $answer->user->level ?? 'N/A',
+                'level_name' => $answer->user->level_name ?? 'N/A',
                 'matches_played' => $answer->user->matches_played ?? 'N/A',
                 'profile' => $answer->user->image ? url('Profile/' . $answer->user->image) : url('avatar/profile'),
                 'trail_match_question_answers' => $this->getTrailMatchQuestionnaireDetailsWithAnswers(

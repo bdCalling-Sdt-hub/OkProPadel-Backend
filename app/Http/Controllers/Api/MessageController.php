@@ -22,6 +22,7 @@ use App\Notifications\JoinRequestAcceptedNotification;
 use App\Notifications\MatchAcceptedNotification;
 use App\Notifications\MemberMessageNotification;
 use App\Notifications\PadelMatchMemberAdded;
+use App\Notifications\StartCommunityMatchNotificication;
 use Auth;
 use File;
 use Illuminate\Http\Request;
@@ -151,6 +152,10 @@ class MessageController extends Controller
         if (!$padelMatch) {
             return $this->sendError('Match not found.', [], 404);
         }
+        $group= Group::find($request->match_id);
+        if(!$group){
+
+        }
         $notApproved = PadelMatchMember::where('padel_match_id', $padelMatch->id)
             ->where('isApproved', false)
             ->exists();
@@ -162,12 +167,10 @@ class MessageController extends Controller
         }
         $padelMatch->status = 'started';
         $padelMatch->save();
-
         if ($padelMatch->status === 'started') {
             $updates = AfterMatchQuestionAnswer::where('match_id', $padelMatch->id)
                 ->where('answer', null)
                 ->get();
-
             $staticAnswer = 'lowser person';
             foreach ($updates as $update) {
                 $update->questionnaire_id = json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9]);
@@ -175,7 +178,13 @@ class MessageController extends Controller
                 $update->save();
             }
         }
+        $approvedMembers = PadelMatchMember::where('padel_match_id', $padelMatch->id)
+        ->where('isApproved', true)
+        ->get();
 
+        foreach ($approvedMembers as $member) {
+            $member->user->notify(new StartCommunityMatchNotificication($padelMatch));
+        }
         return $this->sendResponse([], 'Game started successfully.');
     }
     public function endGame(Request $request)
@@ -269,7 +278,6 @@ class MessageController extends Controller
         if (!$padelMatch) {
             return $this->sendError('Match not found.', [], 404);
         }
-
         $membersStatus = PadelMatchMember::where('padel_match_id', $matchId)
             ->where('user_id', '!=', auth()->user()->id)
             ->orderBy('id', 'desc')
@@ -288,13 +296,11 @@ class MessageController extends Controller
                     'is_approved'   => $member->isApproved ? true : false,
                 ];
             });
-
         if ($membersStatus->isEmpty()) {
             return $this->sendError('No members found for this match.', [], 404);
         }
         return $this->sendResponse($membersStatus, 'Members status retrieved successfully.');
     }
-
     public function userPrivateMessageMember()
     {
         $userId = Auth::id();
@@ -309,7 +315,11 @@ class MessageController extends Controller
             ->unique();
         $userMembers = User::whereIn('id', $members)->get();
         if ($userMembers->isEmpty()) {
-            return $this->sendError('No message members found.');
+            return response()->json([
+                'success' => false,
+                'data' => [],
+                'message' => 'User not found.'
+            ]);
         }
         $formattedMembers = $userMembers->map(function ($user) use ($userId) {
             $lastMessage = PrivateMessage::where(function ($query) use ($userId, $user) {
@@ -331,10 +341,11 @@ class MessageController extends Controller
                 'email' => $user->email,
                 'level' => $user->level,
                 'matches_played' => $user->matches_played,
-                'image' => $user->image ? url('Profile/',$user->image) :  url('avatar/','profile.jpg'),
+                'image' => $user->image ? url('Profile/', $user->image) : url('avatar/', 'profile.jpg'),
                 'last_message' => $lastMessage ? $lastMessage->message : null,
                 'last_message_time' => $lastMessage ? $lastMessage->created_at : null,
                 'unread_count' => $unreadCount,
+                'auth_user_id' => $userId,
             ];
         });
         return $this->sendResponse($formattedMembers, 'Private message members retrieved successfully.');
@@ -353,48 +364,68 @@ class MessageController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'recipient_id' => 'required|exists:users,id',
+            'per_page' => 'nullable|integer|min:1',
         ]);
         if ($validator->fails()) {
             return $this->sendError('Validation Error', $validator->errors(), 422);
         }
         $authUserId = Auth::id();
         $recipientId = $request->recipient_id;
+        $perPage = $request->per_page ?? 15;
         $messages = PrivateMessage::with(['sender', 'recipient'])
             ->where(function ($query) use ($authUserId, $recipientId) {
-                $query->where('sender_id', $authUserId)
-                    ->where('recipient_id', $recipientId);
-            })
-            ->orWhere(function ($query) use ($authUserId, $recipientId) {
-                $query->where('sender_id', $recipientId)
-                    ->where('recipient_id', $authUserId);
+                $query->whereIn('sender_id', [$authUserId, $recipientId])
+                    ->whereIn('recipient_id', [$authUserId, $recipientId]);
             })
             ->orderBy('created_at', 'desc')
-            ->get();
-
+            ->paginate($perPage);
         if ($messages->isEmpty()) {
-            return $this->sendError('No messages found.');
+            return $this->sendError([], 'No messages found.');
         }
-        $formattedMessages = $messages->map(function ($message) {
+        $generateImageUrl = function ($imagePath) {
+            return $imagePath ? url("uploads/private_messages/", $imagePath) : null;
+        };
+        $formattedMessages = $messages->map(function ($message) use ($generateImageUrl) {
             $imageCollection = collect(json_decode($message->images, true) ?? []);
             return [
                 'id' => $message->id,
                 'message' => $message->message,
-                'images' =>  $imageCollection->map(function ($image) {
-                                    return $image ? url("uploads/private_messages/",$image) : null;
-                                }),
+                'images' => $imageCollection->map(fn($image) => $generateImageUrl($image)),
                 'is_read' => $message->is_read,
                 'created_at' => $message->created_at->format('Y-m-d H:i:s'),
                 'sender' => [
                     'id' => $message->sender->id,
-                    'rull_name' => $message->sender->full_name,
-                    // 'user_name' => $message->sender->user_name,
+                    'full_name' => $message->sender->full_name,
                     'email' => $message->sender->email,
-                    'image' => $message->sender->image ? url('Profile/'. $message->sender->image) : url('avatar/',$message->sender->image),
+                    'matches_played' => $message->sender->matches_played,
+                    'image' =>  $generateImageUrl($message->sender->image)
+                                ? $generateImageUrl($message->sender->image)
+                                : url('avatar/profile.jpg'),
                 ],
             ];
         });
-        return $this->sendResponse($formattedMessages, 'Private messages retrieved successfully.');
+        return $this->sendResponse([
+            'recipient_id' => $recipientId,
+            'sender' => [
+                'id' => $messages->first()->sender->id,
+                'full_name' => $messages->first()->sender->full_name,
+                'email' => $messages->first()->sender->email,
+                'matches_played' => $messages->first()->sender->matches_played,
+                'image' => $generateImageUrl($messages->first()->sender->image)
+                            ? $generateImageUrl($messages->first()->sender->image)
+                            : url('avatar/profile.jpg'),
+            ],
+            'messages' => $formattedMessages,
+            'pagination' => [
+                'current_page' => $messages->currentPage(),
+                'total_pages' => $messages->lastPage(),
+                'total_items' => $messages->total(),
+                'per_page' => $messages->perPage(),
+            ]
+        ], 'Private messages retrieved successfully.');
     }
+
+
     public function updateMessage(Request $request, $messageId)
     {
         $validator = Validator::make($request->all(), [
@@ -435,8 +466,8 @@ class MessageController extends Controller
     public function MemberMessage(Request $request, $userId)
     {
         $validator = Validator::make($request->all(), [
-            'message' => 'required|string|max:500',
-            'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'message' => 'nullable|string|max:500',
+            'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:4096',
         ]);
         if ($validator->fails()) {
             return $this->sendError('Validation Error', $validator->errors(), 422);
@@ -456,15 +487,14 @@ class MessageController extends Controller
                   ->where('block', true);
         })
         ->exists();
-
         if ($blockCheck) {
-            return $this->sendError('You cannot send messages to this user or blocked.', [], 403);
+            return $this->sendError('You cannot send messages to this user. User is blocked.', [], 403);
         }
         $imagePaths = [];
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
                 $imageName = time() . '_' . $image->getClientOriginalName();
-                $image->move(public_path('uploads/private_messages'), $imageName);
+                $image->move(public_path('uploads/private_messages/'), $imageName);
                 $imagePaths[] = $imageName;
             }
         }
@@ -475,9 +505,12 @@ class MessageController extends Controller
             'images' => json_encode($imagePaths),
             'is_read' => false,
         ]);
-        $recipient->notify(new MemberMessageNotification($message));
+        if (!$message) {
+            return $this->sendError("Message could not be sent. Please try again.", [], 500);
+        }
         return $this->sendResponse($message, 'Message sent successfully.');
     }
+
     public function leaveGroup(Request $request)
     {
         $user = Auth::user();
@@ -705,18 +738,14 @@ class MessageController extends Controller
                     $imagePaths[] = $imageName;
                 }
             }
+            $user_read = [auth()->user()->id];
             $message = $group->messages()->create([
                 'group_id' => $group->id,
                 'user_id' => auth()->id(),
                 'message' => $request->message,
                 'images' => json_encode($imagePaths),
-                'is_read'=> true,
+                'is_read'=> json_encode($user_read),
             ]);
-            // foreach ($group->members as $member) {
-            //     if ($member->id !== auth()->id()) {
-            //         $member->notify(new GroupMessageNotification($message));
-            //     }
-            // }
             return $this->sendResponse($message, 'Message sent successfully.');
         } catch (\Exception $e) {
             return $this->sendError('Failed to send message.', ['error' => $e->getMessage()], 500);
@@ -783,20 +812,26 @@ class MessageController extends Controller
         $groupMessage->delete();
         return $this->sendResponse([], 'Group message deleted successfully.');
     }
-    public function messageIsRead(Request $request, $groupId)
-    {
-        if (!$groupId) {
-            return $this->sendError('Group ID not found.', [], 400);
-        }
-        $group = Group::find($groupId);
-        if (!$group) {
-            return $this->sendError('Group not found.', [], 404);
-        }
-        GroupMessage::where('group_id', $groupId)
-                    ->where('user_id', auth()->id())
-                    ->update(['is_read' => true]);
-        return $this->sendResponse([], 'Messages marked as read successfully.');
-    }
+    // public function messageIsRead(Request $request, $groupId)
+    // {
+    //     $group = Group::find($groupId);
+    //     if (!$group) {
+    //         return $this->sendError('Group not found.', [], 404);
+    //     }
+    //     $groupMessages = GroupMessage::where('group_id', $groupId)
+    //                                 ->where('is_read',json_decode($is_read))
+    //                                 ->get();
+
+
+    //                                 return $groupMessages;
+    //     if ($groupMessages->isEmpty()) {
+    //         return $this->sendError('No messages found to mark as read.', [], 404);
+    //     }
+
+    //     } catch (\Exception $e) {
+    //         return $this->sendError('Failed to mark messages as read.', ['error' => $e->getMessage()], 500);
+    //     }
+    // }
     public function getGroupMessages($groupId,Request $request)
     {
         $user = Auth::user();

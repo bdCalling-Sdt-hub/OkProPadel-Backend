@@ -2,6 +2,7 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "start": "nodemon server.js",
         "dev": "vite",
         "build": "vite build"
     },

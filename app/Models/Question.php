@@ -11,5 +11,7 @@ class Question extends Model
     protected $fillable = [
         "question",
         "options",
+        "question_es",
+        "status"
     ];
 }

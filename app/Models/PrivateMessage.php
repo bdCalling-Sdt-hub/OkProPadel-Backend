@@ -20,8 +20,6 @@ class PrivateMessage extends Model
     {
         return $this->belongsTo(User::class, 'sender_id');
     }
-
-    // Relationship with the recipient
     public function recipient()
     {
         return $this->belongsTo(User::class, 'recipient_id');

@@ -12,5 +12,6 @@ class TrailMatchQuestion extends Model
         "question",
         "options",
         "status",
+        "question_es"
     ];
 }

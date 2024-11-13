@@ -112,6 +112,7 @@ class QuestionController extends Controller
                 'id' => $question->id,
                 'question' => $question->question,
                 'status'=> $question->status,
+                'question_es'=> $question->question_es,
                 'options' => json_decode($question->options, true),
                 'created_at' => $question->created_at->toDateTimeString(),
                 'updated_at' => $question->updated_at->toDateTimeString(),
@@ -163,11 +164,13 @@ class QuestionController extends Controller
         ];
         $question->options = json_encode($options);
         $question->status= true;
+        $question->question_es = $request->question_es;
         $question->save();
         return $this->sendResponse([
             'id' => $question->id,
             'question' => $question->question,
             'status' => $question->status,
+            'question_es' => $question->question_es,
             'options' => json_decode($question->options),
             'created_at' => $question->created_at,
             'updated_at' => $question->updated_at,
@@ -209,6 +212,7 @@ class QuestionController extends Controller
         }
         $question->question = $request->question;
         $question->status = $request->status;
+        $question->question_es = $request->question_es;
         $question->save();
 
         return $this->sendResponse([
@@ -216,6 +220,7 @@ class QuestionController extends Controller
             'question' => $question->question,
             'status' => $question->status,
             'options' => json_decode($question->options),
+
             'created_at' => $question->created_at,
             'updated_at' => $question->updated_at,
         ], "Question updated successfully.");
