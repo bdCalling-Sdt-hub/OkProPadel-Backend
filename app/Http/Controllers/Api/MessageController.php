@@ -812,26 +812,26 @@ class MessageController extends Controller
         $groupMessage->delete();
         return $this->sendResponse([], 'Group message deleted successfully.');
     }
-    // public function messageIsRead(Request $request, $groupId)
-    // {
-    //     $group = Group::find($groupId);
-    //     if (!$group) {
-    //         return $this->sendError('Group not found.', [], 404);
-    //     }
-    //     $groupMessages = GroupMessage::where('group_id', $groupId)
-    //                                 ->where('is_read',json_decode($is_read))
-    //                                 ->get();
+    public function messageIsRead(Request $request, $messageId)
+{
+    $user = auth()->user(); // Get the authenticated user
+    $message = GroupMessage::find($messageId); // Find the message by ID
 
+    if (!$message) {
+        return response()->json(['error' => 'Message not found'], 404);
+    }
 
-    //                                 return $groupMessages;
-    //     if ($groupMessages->isEmpty()) {
-    //         return $this->sendError('No messages found to mark as read.', [], 404);
-    //     }
+    // Check if the user is associated with the group message, if not, attach it
+    if (!$user->groupMessages()->where('group_message_id', $messageId)->exists()) {
+        $user->groupMessages()->attach($messageId, ['is_read' => true]);
+    } else {
+        // Update the pivot table to mark the message as read
+        $user->groupMessages()->updateExistingPivot($messageId, ['is_read' => true]);
+    }
 
-    //     } catch (\Exception $e) {
-    //         return $this->sendError('Failed to mark messages as read.', ['error' => $e->getMessage()], 500);
-    //     }
-    // }
+    return response()->json(['message' => 'Message marked as read']);
+}
+
     public function getGroupMessages($groupId,Request $request)
     {
         $user = Auth::user();
@@ -863,7 +863,7 @@ class MessageController extends Controller
             ->through(function ($message) use ($groupMemberCount, $groupName, $groupImage) {
                 $imageCollection = collect(json_decode($message->images, true) ?? []);
                 return [
-                    'id' => $message->id,
+                    'message_id' => $message->id,
                     'sender_id' => $message->sender->id,
                     'sender_name' => $message->sender->full_name,
                     'image' => $message->sender->image

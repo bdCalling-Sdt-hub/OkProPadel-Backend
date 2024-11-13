@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class GroupMessage extends Model
 {
     use HasFactory;
-    protected $fillable = ['group_id', 'user_id', 'message', 'images','is_read'];
+    protected $fillable = ['group_id', 'user_id', 'message', 'images'];
 
     protected $casts = [
         'images' => 'array',
@@ -27,4 +27,11 @@ class GroupMessage extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'group_message_user')
+                    ->withPivot('is_read')
+                    ->withTimestamps();
+    }
+
 }

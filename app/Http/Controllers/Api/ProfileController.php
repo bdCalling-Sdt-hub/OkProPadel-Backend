@@ -115,6 +115,7 @@ class ProfileController extends Controller
                     'id' => $volunteer->id,
                     'name' => $volunteer->name,
                     'role' => $volunteer->role,
+                    'level' => $volunteer->level,
                     'phone_number' => $volunteer->phone_number,
                     'image' => $volunteer->image
                         ? url('uploads/volunteers/', $volunteer->image)

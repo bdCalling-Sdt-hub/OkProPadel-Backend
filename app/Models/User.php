@@ -61,4 +61,11 @@ class User extends Authenticatable
     {
         return $this->hasMany(Group::class, 'creator_id');
     }
+    public function groupMessages()
+    {
+        return $this->belongsToMany(GroupMessage::class, 'group_message_user')
+                    ->withPivot('is_read')
+                    ->withTimestamps();
+    }
+
 }
