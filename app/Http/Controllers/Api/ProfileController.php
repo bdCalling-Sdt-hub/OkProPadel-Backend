@@ -47,13 +47,9 @@ class ProfileController extends Controller
     }
     public function TrailMatchStatus($trailMatchId)
     {
-        $trailMatch = TrailMatch::find($trailMatchId);
+        $trailMatch = RequestTrailMacth::find($trailMatchId);
         if (!$trailMatch) {
             return $this->sendError('No trail match found.');
-        }
-        if (now()->isAfter($trailMatch->date)) {
-            $trailMatch->status = false;
-            $trailMatch->save();
         }
         $status=[
             'status'=> $trailMatch->status,
@@ -68,8 +64,18 @@ class ProfileController extends Controller
         {
             return $this->sendError("Trail Match not found.");
         }
-        $trailMatch->status = true;
+        if($trailMatch->status == 1)
+        {
+            return $this->sendResponse([], 'Trail match already accepted.');
+        }
+        $trailMatch->status = 1;
         $trailMatch->save();
+        if($trailMatch->status == 1)
+        {
+           $requestMatch = RequestTrailMacth::find($trailMatch->request_id);
+           $requestMatch->status = 'accepted';
+           $requestMatch->save();
+        }
         $volunteerIds = json_decode($trailMatch->volunteer_id, true);
         $this->notifyUsers($trailMatch, $volunteerIds, 'Trail Match Accepted', "{$trailMatch->user->full_name} has accepted the trail match.");
         return $this->sendResponse([], 'Trail match accepted successfully.');
@@ -106,7 +112,10 @@ class ProfileController extends Controller
         //$trailMatches = TrailMatch::where('user_id', $user->id)->where('status',1)->orderBy('id','desc')->get();
         $trailMatches = TrailMatch::where('user_id', $user->id)->orderBy('id','desc')->get();
         if ($trailMatches->isEmpty()) {
-            return $this->sendError('No trail matches found.', [], 404);
+            return response()->json([
+                'message' => 'No trail matches found.',
+                'data' => [],
+            ]);
         }
         $formattedTrailMatches = $trailMatches->map(function ($trailMatch) {
             $volunteerIds = json_decode($trailMatch->volunteer_id);
@@ -209,11 +218,6 @@ class ProfileController extends Controller
     }
     private function getFormattedUserDetails($user)
     {
-        $client = new Client();
-        $createdMatches = PadelMatch::where('creator_id', $user->id)->get();
-        $joinedMatches = PadelMatchMember::where('user_id', $user->id)
-            ->with('padelMatch')
-            ->get();
         $formattedUser = [
             'id' => $user->id,
             'full_name' => $user->full_name,
@@ -221,47 +225,47 @@ class ProfileController extends Controller
             'email' => $user->email,
             'level' => $user->level,
             'matches_played'=> $user->matches_played,
-            'created_matches_count' => $createdMatches->count(),
-            'joined_matches_count' => $joinedMatches->count(),
-            'created_matches' => $createdMatches->map(function ($match) use ($client) {
-                $location = $this->getLocationFromCoordinates($client, $match->latitude, $match->longitude, env('GOOGLE_MAPS_API_KEY'));
-                $group = Group::where('match_id', $match->id)->first();
-                $playerCount = $group ? $group->members()->count() : 0;
-                $join = $playerCount < 8;
+            // 'created_matches_count' => $createdMatches->count(),
+            // 'joined_matches_count' => $joinedMatches->count(),
+            // 'created_matches' => $createdMatches->map(function ($match) use ($client) {
+            //     $location = $this->getLocationFromCoordinates($client, $match->latitude, $match->longitude, env('GOOGLE_MAPS_API_KEY'));
+            //     $group = Group::where('match_id', $match->id)->first();
+            //     $playerCount = $group ? $group->members()->count() : 0;
+            //     $join = $playerCount < 8;
 
-                return [
-                    'id' => $match->id,
-                    'mind_text' => $match->mind_text,
-                    'selected_level' => $match->selected_level,
-                    'level' => $match->level,
-                    'level_name' => $match->level_name,
-                    'location_address' => $location,
-                    'player_count' => $playerCount,
-                    'join'=> $join,
-                    'created_at' => $match->created_at->toDateTimeString(),
+            //     return [
+            //         'id' => $match->id,
+            //         'mind_text' => $match->mind_text,
+            //         'selected_level' => $match->selected_level,
+            //         'level' => $match->level,
+            //         'level_name' => $match->level_name,
+            //         'location_address' => $location,
+            //         'player_count' => $playerCount,
+            //         'join'=> $join,
+            //         'created_at' => $match->created_at->toDateTimeString(),
 
-                ];
-            }),
+            //     ];
+            // }),
 
-            'joined_matches' => $joinedMatches->map(function ($member) use ($client) {
-                $match = $member->padelMatch;
-                $location = $this->getLocationFromCoordinates($client, $match->latitude, $match->longitude, env('GOOGLE_MAPS_API_KEY'));
-                $group = Group::where('match_id', $match->id)->first();
-                $playerCount = $group ? $group->members()->count() : 0;
-                $join = $playerCount < 8;
-                return [
-                    'id' => $match->id,
-                    'mind_text' => $match->mind_text,
-                    'selected_level' => $match->selected_level,
-                    'level' => $match->level,
-                    'level_name' => $match->level_name,
-                    'location_address' => $location,
-                    'player_count' => $playerCount,
-                    'join' => $join,
-                    'created_at' => $match->created_at->toDateTimeString(),
+            // 'joined_matches' => $joinedMatches->map(function ($member) use ($client) {
+            //     $match = $member->padelMatch;
+            //     $location = $this->getLocationFromCoordinates($client, $match->latitude, $match->longitude, env('GOOGLE_MAPS_API_KEY'));
+            //     $group = Group::where('match_id', $match->id)->first();
+            //     $playerCount = $group ? $group->members()->count() : 0;
+            //     $join = $playerCount < 8;
+            //     return [
+            //         'id' => $match->id,
+            //         'mind_text' => $match->mind_text,
+            //         'selected_level' => $match->selected_level,
+            //         'level' => $match->level,
+            //         'level_name' => $match->level_name,
+            //         'location' => $location,
+            //         'player_count' => $playerCount,
+            //         'join' => $join,
+            //         'created_at' => $match->created_at->toDateTimeString(),
 
-                ];
-            }),
+            //     ];
+            // }),
         ];
         return response()->json([
             'success' => true,
@@ -269,7 +273,116 @@ class ProfileController extends Controller
             'message' => 'User profile retrieved successfully.'
         ], 200);
     }
+    public function createdMatches()
+    {
+        $user = Auth::user();
+        $createdMatches = PadelMatch::where('creator_id', $user->id)->get();
+        $formattedMatches = $this->formatMatches($createdMatches);
+        return response()->json([
+            'success' => true,
+            'data' => $formattedMatches,
+            'message' => 'Created matches retrieved successfully.'
+        ], 200);
+    }
 
+    public function joinedMatches()
+    {
+        $user = Auth::user();
+        $joinedMatches = PadelMatchMember::where('user_id', $user->id)
+            ->with('padelMatch')
+            ->get();
+        $formattedMatches = $this->formatMatches($joinedMatches->pluck('padelMatch'));
+        return response()->json([
+            'success' => true,
+            'data' => $formattedMatches,
+            'message' => 'Joined matches retrieved successfully.'
+        ], 200);
+    }
+    private function formatMatches($matches)
+    {
+        $client = new Client();
+        return $matches->map(function ($match) use ($client) {
+            if (!$match) {
+               return response()->json([
+                'data'=>[],
+                'message'=>'No match found.',
+                'satus'=>false
+               ]);
+            }
+            $location = null;
+            if ($match->latitude && $match->longitude) {
+                $location = $this->getLocationFromCoordinates($client, $match->latitude, $match->longitude, env('GOOGLE_MAPS_API_KEY'));
+            }
+            $creator = User::find($match->creator_id);
+            $creatorName = $creator ? $creator->full_name : 'Unknown';
+
+            $createdMatchesCount = PadelMatch::where('creator_id', $match->creator_id)->count();
+            $group = Group::where('match_id', $match->id)->first();
+            $playerCount = $group ? $group->members()->count() : 0;
+            $join = $playerCount < 8;
+            return [
+                'id' => $match->id,
+                'mind_text' => $match->mind_text,
+                'selected_level' => $match->selected_level,
+                'level' => $match->level,
+                'level_name' => $match->level_name,
+                'location' => $location,
+                'creator_name' => $creatorName,
+                'creator_matches_count' => $createdMatchesCount,
+                'player_count' => $playerCount,
+                'join' => $join,
+                'created_at' => $match->created_at->toDateTimeString(),
+            ];
+        });
+    }
+    public function trailMatches()
+    {
+        $user = Auth::user();
+        TrailMatch::where('user_id', $user->id)
+                    ->where('status', 1)
+                    ->whereDate('date', '<', now())
+                    ->update(['status' => 0]);
+        $trailMatches = TrailMatch::where('user_id', $user->id)->where('status',1)->orderBy('id','desc')->get();
+        if ($trailMatches->isEmpty()) {
+            return response()->json([
+                'message' => 'No trail matches found.',
+                'data' => [],
+            ]);
+        }
+        $formattedTrailMatches = $trailMatches->map(function ($trailMatch) {
+            $volunteerIds = json_decode($trailMatch->volunteer_id);
+            $volunteers = Volunteer::whereIn('id', $volunteerIds)->get()->map(function ($volunteer) {
+                return [
+                    'id' => $volunteer->id,
+                    'name' => $volunteer->name,
+                    'role' => $volunteer->role,
+                    'level' => $volunteer->level,
+                    'phone_number' => $volunteer->phone_number,
+                    'image' => $volunteer->image
+                        ? url('uploads/volunteers/', $volunteer->image)
+                        : url('avatar/profile.jpg'),
+                ];
+            });
+            $user = $trailMatch->user;
+            $club = $trailMatch->club;
+            return [
+                'trail_match_id' => $trailMatch->id,
+                'full_name' => $user->full_name,
+                'image' => $user->image
+                    ? url('Profile/', $user->image)
+                    : url('avatar/profile.jpg'),
+                'level' => $user->level,
+                'level_name' => $user->level_name,
+                'club_name' => $club ? $club->club_name : 'No club',
+                'club_location' => $club ? $club->location : 'No location',
+                'time' => $trailMatch->time,
+                'date' => $trailMatch->date,
+                'volunteers' => $volunteers,
+                'created_at' => $trailMatch->created_at->format('Y-m-d H:i:s'),
+            ];
+        });
+        return $this->sendResponse($formattedTrailMatches, 'Trail matches retrieved successfully.');
+    }
     private function getLocationFromCoordinates($client, $latitude, $longitude, $apiKey)
     {
         try {

@@ -30,9 +30,7 @@ Route::group(['controller' => AuthController::class,], function () {
     Route::post('/create-password', 'createPassword')->withoutMiddleware('auth:sanctum');
     Route::post('/resend-otp', 'resendOtp')->withoutMiddleware('auth:sanctum');
     Route::get('/get-user-name', 'getUserName')->withoutMiddleware('auth:sanctum');
-
     Route::post('social-login', 'socialLogin')->withoutMiddleware(['auth:sanctum','member']);
-
     Route::post('/logout', 'logout')->middleware(['auth:sanctum','member']);
     Route::get('/users', 'users')->middleware(['auth:sanctum','member']);
     Route::post('/update-password', 'updatePassword')->middleware(['auth:sanctum','member']);
@@ -43,6 +41,9 @@ Route::group(['controller' => AuthController::class,], function () {
 Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => ProfileController::class], function () {
     Route::get('my-profile', 'myProfile');
     Route::get('another-user-profile/{id}', 'anotherUserProfile');
+    Route::get('joinedMatches', 'joinedMatches');
+    Route::get('createdMatches', 'createdMatches');
+    Route::get('trailMatches', 'trailMatches');
     Route::get('upgrade-level-free', 'upgradeLevelFree');
     Route::post('request-to-trail-match', 'requestToTrailMatch');
     Route::get('get-request-to-trail-match', 'getRequestToTrailMatch');
@@ -53,7 +54,7 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Profile
     Route::post('trail-match-start/{id}', 'StartTrailMatch');
 });
 Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => UserController::class], function () {
-    Route::put('language', 'updateLanguage'); /* USE ADMIN AND USER */
+    Route::put('language', 'updateLanguage');
     Route::put('gender', 'updateGender');
     Route::put('age', 'updateAge');
     Route::put('side-of-court', 'sideOfCourt');
@@ -66,10 +67,8 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => PadelMa
     Route::get('level-with-level-name', 'levelWithLevelName');
     Route::get('members', 'members');
     Route::get('search-member', 'searchMember');
-
     Route::post('padel-match-create','padelMatchCreate');
     Route::get('padel-matches', 'indexPadelMatches');
-    // Route::put('padel-matches/{id}', 'updatePadelMatch');
     Route::delete('padel-matches/{id}', 'deletePadelMatch');  // reuse in prfile
 });
 Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => MessageController::class], function () {
@@ -77,13 +76,11 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Message
     Route::get('get-group','getUserGroup');
     Route::put('group/{groupId}',  'updateGroup');
     Route::put('accept-group-member-request/{matchId}',  'acceptGroupMemberRequest'); //from request in homecontroller
-
     Route::post('group-message-store', 'storeGroupMessage');
     Route::put('group-message/{messageId}',  'updateGroupMessage');
     Route::delete('group-message/{messageId}', 'deleteGroupMessage');
     Route::put('message-is-read/{id}', 'messageIsRead');
     Route::get('group-message/{groupId}', 'getGroupMessages');
-
     Route::get('search-member', 'searchMember');
     Route::get('get-inivite-members/{groupId}', 'getInviteMembers');
     Route::post('group-invite/{groupId}',  'inviteMembers');
@@ -94,18 +91,15 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Message
     Route::put('accept-padel-match/{matchId}','acceptPadelMatch');
     Route::get('padel-match-member-status/{matchId}', 'PadelMatchMemberStatus');
     Route::delete('leave-group', 'leaveGroup');
-    // Route::delete('remove-group-member', 'removeGroupMember');
-
     Route::put('start-game','startGame');
     Route::put('end-game','endGame');
     Route::get('game-status/{MatchId}', 'gameStatus');
-
+    Route::get('normal-game-status/{MatchId}', 'NormalgameStatus');
     Route::get('user-private-message-member', 'UserPrivateMessageMember');
     Route::post('member-private-message/{userId}', 'MemberMessage');
     Route::put('update-private-message/{privateMessageId}', 'UpdateMessage');
     Route::get('get-private-message', 'getPrivateMessage');
     Route::post('private-message/read/{messageId}', 'PrivateMessageAsRead');
-
     Route::post('block-private-message', 'BlockPrivateMessage');
     Route::post('unblock-private-message', 'UnblockPrivateMessage');
 });
@@ -113,7 +107,6 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => HomeCon
     Route::get('viewMatch','viewMatch');
     Route::get('search-match','searchMatch');
     Route::post('join-match','joinMatch');
-
     Route::get('home-page', 'homePage');
     Route::get('find-match','findMatch');
     Route::get('club-details/{id}',  'clubDetails');
@@ -125,7 +118,6 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Notific
     Route::post('/notifications/read/{id}', 'markAsRead');
     Route::post('notifications-read-all','notificationReadAll');
 });
-
 /* Admin Panel Routes */
 Route::group(['middleware' => ['auth:sanctum','admin'], 'controller' => DashboardController::class], function () {
     Route::get('dashboard', 'dashboard');
@@ -135,10 +127,8 @@ Route::group(['middleware' => ['auth:sanctum','admin'], 'controller' => UserMana
     Route::get('get-users', 'getUsers');
     Route::put('change-status/{userId}', 'changeRole');
     Route::delete('delete-user/{userId}', 'deleteUser');
-
     Route::get('user-details/{userId}', 'userDetails');
     Route::get('user-search', 'userSearch');
-
 });
 Route::group(['middleware' => ['auth:sanctum','admin'], 'controller' => ClubController::class], function () {
     Route::get('clubs', 'index');
@@ -158,7 +148,6 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Questio
     Route::post('question', 'question')->middleware(['auth:sanctum','admin']);
     Route::put('question/{id}', 'update')->middleware(['auth:sanctum','admin']);
     Route::delete('question/{id}', 'delete')->middleware(['auth:sanctum','admin']);
-    // after match questions user
     Route::get('/get-after-match-questionnaire/{matchId}',  'getAfterMatchQuestion');
     Route::post('/feedback', 'storeFeedback');
     Route::post('/after-match-question/{matchId}', 'afterMatchQuestion'); //user use
@@ -174,7 +163,6 @@ Route::group(['middleware' => ['auth:sanctum','admin'], 'controller' => Feedback
     Route::get('view-normal-match-feedback/{matchId}/{userId}', 'normalMatchView');
     Route::get('trail-match-feedback', 'trailMatchFeedback');
     Route::put('adjust-level/{userId}','adjustLevel');
-
 });
 Route::group(['middleware' => ['auth:sanctum'], 'controller' => TrailMatchQuestionController::class], function () {
     Route::get('trail-match-questions', 'getTrailMatchQuestion')->middleware(['auth:sanctum','member']); //use admin and user
@@ -189,7 +177,6 @@ Route::group(['middleware' => ['auth:sanctum'], 'controller' => SettingControlle
     Route::apiResource('faqs',FaqController::class)->middleware(['auth:sanctum','admin']);
     Route::apiResource('terms-and-conditions',TermAndConditionController::class)->middleware(['auth:sanctum','admin']);
     Route::apiResource('abouts',AboutController::class)->middleware(['auth:sanctum','admin']);
-
     Route::apiResource('abouts',AboutController::class)->middleware(['auth:sanctum','member'])->only(['index']);
     Route::apiResource('terms-and-conditions',TermAndConditioncontroller::class)->middleware(['auth:sanctum','member'])->only(['index']);
     Route::apiResource('terms-and-conditions',TermAndConditionController::class)->middleware(['auth:sanctum','member'])->only(['index']);

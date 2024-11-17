@@ -234,6 +234,18 @@ class MessageController extends Controller
     }
     public function gameStatus($MatchId)
     {
+        $padelMatch = TrailMatch::find($MatchId);
+        if (!$padelMatch) {
+            return $this->sendError('Match not found.', [], 404);
+        }
+        $status = [
+            'match_id' => $padelMatch->id,
+            'status' => $padelMatch->game_status ?? "wait for game start",
+        ];
+        return $this->sendResponse($status, 'Game status retrieved successfully.');
+    }
+    public function NormalgameStatus($MatchId)
+    {
         $padelMatch = PadelMatch::find($MatchId);
         if (!$padelMatch) {
             return $this->sendError('Match not found.', [], 404);
@@ -269,7 +281,6 @@ class MessageController extends Controller
         if ($removedCount === 0) {
             return $this->sendError('No members removed. Please check the user IDs.', [], 404);
         }
-
         return $this->sendResponse([], "$removedCount member(s) removed from the group successfully.");
     }
     public function PadelMatchMemberStatus($matchId)
@@ -430,7 +441,7 @@ class MessageController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'message' => 'sometimes|string|max:500',
-            'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:10240',
         ]);
         if ($validator->fails()) {
             return $this->sendError('Validation Error', $validator->errors(), 422);
@@ -467,7 +478,7 @@ class MessageController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'message' => 'nullable|string|max:500',
-            'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:4096',
+            'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:10240',
         ]);
         if ($validator->fails()) {
             return $this->sendError('Validation Error', $validator->errors(), 422);
@@ -720,7 +731,7 @@ class MessageController extends Controller
             'group_id'=> 'required|exists:groups,id',
             'message' => 'nullable|required|string|max:1000',
             'images' => 'array',
-            'images.*' => 'image|mimes:jpg,jpeg,png|max:2048',
+            'images.*' => 'image|mimes:jpg,jpeg,png|max:10240',
         ]);
         if ($validator->fails()) {
             return $this->sendError('Validation Error', $validator->errors(), 422);
@@ -755,8 +766,8 @@ class MessageController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'message' => 'nullable|string|max:255',
-            'images' => 'nullable|array',
-            'images.*'=> 'image|mimes:jpg,jpeg,png,bmp|max:2048',
+            'images' => 'nullable|array|max:4',
+            'images.*'=> 'image|mimes:jpg,jpeg,png,bmp|max:10240',
         ]);
         if ($validator->fails()) {
             return $this->sendError('Validation Error', $validator->errors(), 422);
@@ -813,24 +824,19 @@ class MessageController extends Controller
         return $this->sendResponse([], 'Group message deleted successfully.');
     }
     public function messageIsRead(Request $request, $messageId)
-{
-    $user = auth()->user(); // Get the authenticated user
-    $message = GroupMessage::find($messageId); // Find the message by ID
-
-    if (!$message) {
-        return response()->json(['error' => 'Message not found'], 404);
+    {
+        $user = auth()->user();
+        $message = GroupMessage::find($messageId);
+        if (!$message) {
+            return response()->json(['error' => 'Message not found'], 404);
+        }
+        if (!$user->groupMessages()->where('group_message_id', $messageId)->exists()) {
+            $user->groupMessages()->attach($messageId, ['is_read' => true]);
+        } else {
+            $user->groupMessages()->updateExistingPivot($messageId, ['is_read' => true]);
+        }
+        return response()->json(['message' => 'Message marked as read']);
     }
-
-    // Check if the user is associated with the group message, if not, attach it
-    if (!$user->groupMessages()->where('group_message_id', $messageId)->exists()) {
-        $user->groupMessages()->attach($messageId, ['is_read' => true]);
-    } else {
-        // Update the pivot table to mark the message as read
-        $user->groupMessages()->updateExistingPivot($messageId, ['is_read' => true]);
-    }
-
-    return response()->json(['message' => 'Message marked as read']);
-}
 
     public function getGroupMessages($groupId,Request $request)
     {
@@ -855,6 +861,17 @@ class MessageController extends Controller
                 'image' => $member->image ? url('Profile/' . $member->image) : url('avatar/profile.jpg'),
             ];
         });
+        $lastMessage = $group->messages()
+            ->orderBy('id', 'desc')
+            ->first();
+            $unreadCount = $user->groupMessages()
+            ->wherePivot('is_read', false) // Access the pivot table's is_read field
+            ->count();
+        //   $unreadCount = $user->groupMessages()
+        //     ->join('group_messages', 'group_messages.id', '=', 'group_message_user.group_message_id')
+        //     ->where('group_messages.group_id', $groupId)
+        //     ->where('group_message_user.is_read', false)
+        //     ->count();
         $groupName = $group->name;
         $groupImage = $group->image ? url('uploads/group/' . $group->image) : url('avatar/community.jpg');
         $formattedMessages = $group->messages()
@@ -884,6 +901,11 @@ class MessageController extends Controller
             'padel_match' => $padelMatch,
             'group_image' => $groupImage,
             'members' => $members,
+            'last_message' => $lastMessage ? [
+                'message' => $lastMessage->message,
+                'created_at' => $lastMessage->created_at->toDateTimeString(),
+            ] : null,
+            'unread_count' => $unreadCount ?? 0,
         ];
         return $this->sendResponse($groupMessages, 'Group messages retrieved successfully.');
     }

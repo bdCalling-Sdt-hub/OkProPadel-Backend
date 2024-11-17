@@ -74,7 +74,7 @@ class VolunteerController extends Controller
             'level' => 'required|in:1,2,3,4,5',
             'role' => 'required|string|max:255',
             'phone_number' => 'nullable|string|max:20',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:10240',
             'status' => 'boolean',
         ]);
         if ($validator->fails()) {
@@ -107,7 +107,7 @@ class VolunteerController extends Controller
             'level' => 'sometimes|required|in:1,2,3,4,5',
             'role' => 'sometimes|required|string|max:255',
             'phone_number' => 'nullable|string|max:20',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:10240',
             'status' => 'boolean',
         ]);
         if ($validator->fails()) {

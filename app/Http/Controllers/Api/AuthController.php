@@ -66,7 +66,6 @@ class AuthController extends Controller
     {
         return $this->sendResponse($token, 'User logged in successfully.');
     }
-
     public function validateToken(Request $request)
     {
         if (Auth::check()) {
@@ -305,7 +304,7 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'full_name' => 'nullable|string|max:255',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
         ]);
         if ($validator->fails()) {
             return $this->sendError('Validation Error.', $validator->errors(), 422);
@@ -323,7 +322,6 @@ class AuthController extends Controller
 
         return $this->sendResponse($user, 'Profile updated successfully.');
     }
-
     public function profile(Request $request)
     {
         $user = Auth::user();

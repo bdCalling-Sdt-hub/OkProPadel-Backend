@@ -13,17 +13,12 @@ class ClubController extends Controller
 {
     public function index(Request $request)
     {
-        // Retrieve all active clubs, paginated (18 per page)
         $clubs = Club::where('status', true)
             ->orderBy('id', 'desc')
-            ->paginate(18);
-
-        // Check if clubs exist
+            ->paginate(10);
         if ($clubs->isEmpty()) {
             return $this->sendError('No Clubs Found.', []);
         }
-
-        // Format the clubs data
         $formattedClubs = $clubs->map(function ($club) {
             $banners = collect(json_decode($club->banners, true) ?? [])
             ->map(fn($banner) => url('uploads/banners/' . $banner))
@@ -38,13 +33,11 @@ class ClubController extends Controller
                 'website'    => $club->website,
                 'status'     => $club->status,
                 'banners'    => $banners ? $banners : url('avatar','profile.jpg'),
-                'activities' => json_decode($club->activities) ?? [],
+                'activities' => $club->activities,
                 'created_at' => $club->created_at->format('Y-m-d H:i:s'),
                 'updated_at' => $club->updated_at->format('Y-m-d H:i:s'),
             ];
         });
-
-        // Prepare paginated response with formatted data
         $data = [
             'clubs' => $formattedClubs,
             'pagination' => [
@@ -56,21 +49,19 @@ class ClubController extends Controller
                 'to'          => $clubs->lastItem(),
             ],
         ];
-
         return $this->sendResponse($data, "Clubs retrieved successfully.");
     }
-
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            // 'banners'    => 'required|array',
-            // 'banners.*'  => 'image|mimes:jpeg,png,jpg,gif|max:2048',
             'description'=> 'nullable|string|max:255',
-            'activities' => 'nullable|array',
+            'activities' => 'nullable|string|max:50000',
             'club_name'  => 'required|string|unique:clubs,club_name',
             'latitude'   => 'required|string',
             'longitude'  => 'required|string',
             'website'    => 'nullable|url',
+            'banners'    => 'array|max:4',
+            'banners*'   => 'nullable|required|image|mimes:jpeg,png,jpg,gif,svg|max:10240',
         ]);
         if ($validator->fails()) {
             return $this->sendError('Validation Error', $validator->errors(), 400);
@@ -119,25 +110,22 @@ class ClubController extends Controller
             return 'Error retrieving location: ' . $e->getMessage();
         }
     }
-
     public function update(Request $request, $id)
     {
-        // return $request;
         $club = Club::find($id);
         if (!$club) {
             return $this->sendError('Club not found.', [], 404);
         }
         $validator = Validator::make($request->all(), [
-            // 'banners'    => 'nullable|array',
-            // 'banners.*'  => 'image|mimes:jpeg,png,jpg,gif|max:2048',
             'description'=> 'nullable|string|max:255',
-            'activities' => 'nullable|array',
-            'club_name'  => 'required|string|unique:clubs,club_name,' . $id, // Exclude current club's ID
+            'activities' => 'nullable|string:max:50000',
+            'club_name'  => 'required|string|unique:clubs,club_name,' . $id,
             'latitude'   => 'required|string',
             'longitude'  => 'required|string',
             'website'    => 'nullable|url',
+            'banners'    => 'array|max:4',
+            'banners*'   => 'nullable|required|image|mimes:jpeg,png,jpg,gif,svg|max:10240',
         ]);
-
         if ($validator->fails()) {
             return $this->sendError('Validation Error', $validator->errors(), 400);
         }
