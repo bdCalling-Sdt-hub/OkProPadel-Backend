@@ -37,6 +37,7 @@ Route::group(['controller' => AuthController::class,], function () {
     Route::put('/profile-update', 'profileUpdate')->middleware(['auth:sanctum','member']);
     Route::get('/profile', 'profile')->middleware(['auth:sanctum','member']);
     Route::get('/validate-token',  'validateToken')->middleware(['auth:sanctum','member']);
+    Route::put('/profile-update-image',  'userProfileImageUpdate')->middleware(['auth:sanctum','member']);
 });
 Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => ProfileController::class], function () {
     Route::get('my-profile', 'myProfile');
@@ -99,7 +100,7 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Message
     Route::post('member-private-message/{userId}', 'MemberMessage');
     Route::put('update-private-message/{privateMessageId}', 'UpdateMessage');
     Route::get('get-private-message', 'getPrivateMessage');
-    Route::post('private-message/read/{messageId}', 'PrivateMessageAsRead');
+    Route::post('private-message-read', 'privateMessagesAsRead');
     Route::post('block-private-message', 'BlockPrivateMessage');
     Route::post('unblock-private-message', 'UnblockPrivateMessage');
 });

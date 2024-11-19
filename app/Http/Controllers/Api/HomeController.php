@@ -87,14 +87,19 @@ class HomeController extends Controller
             'keyword' => 'nullable|string|max:255',
         ]);
         $query = PadelMatch::query();
+
         if ($request->filled('keyword')) {
             $keyword = $request->keyword;
             $query->where(function ($q) use ($keyword) {
                 $q->where('mind_text', 'like', '%' . $keyword . '%')
-                ->orWhere('selected_level', 'like', '%' . $keyword . '%');
+                    ->orWhere('selected_level', 'like', '%' . $keyword . '%')
+                    ->orWhere('level_name', 'like', '%' . $keyword . '%');
+            });
+            $query->orWhereHas('creator', function ($q) use ($keyword) {
+                $q->where('full_name', 'like', '%' . $keyword . '%');
             });
         }
-        $matches = $query->get();
+        $matches = $query->paginate($request->per_page);
         $client = new Client();
         $formattedMatches = $matches->map(function ($match) use ($client) {
             $location = $this->getLocationFromCoordinates($client, $match->latitude, $match->longitude, env('GOOGLE_MAPS_API_KEY'));
@@ -108,7 +113,7 @@ class HomeController extends Controller
                 'selected_level' => $match->selected_level,
                 'level' => $match->level,
                 'level_name' => $match->level_name,
-                'location_address' => $location,
+                'location' => $location,
                 'player_count' => $playerCount,
                 'join'=> $join,
                 'created_at' => $match->created_at->toDateTimeString(),
@@ -120,15 +125,28 @@ class HomeController extends Controller
                 ],
             ];
         });
-        return $this->sendResponse($formattedMatches, 'Matches retrieved successfully.');
+        return $this->sendResponse(
+            [
+                'auth_user_level'=> Auth::user()->level,
+               'formattedMatches'=>$formattedMatches,
+               'nearbyClubs' =>$this->nearByClubs(Auth::user()),
+                'pagination' => [
+                    'current_page' => $matches->currentPage(),
+                    'last_page' => $matches->lastPage(),
+                    'per_page' => $matches->perPage(),
+                    'total' => $matches->total(),
+                ],
+            ],
+            'Matches retrieved successfully.'
+        );
     }
     public function joinMatch(Request $request)
     {
         $user = Auth::user();
         $request->validate([
-            'id' => 'required|exists:padel_matches,id',
+            'padelMatchId' => 'required|exists:padel_matches,id',
         ]);
-        $pademMatchId =$request->id;
+        $pademMatchId =$request->padelMatchId;
         $padelMatch = PadelMatch::where('level',$user->level)->where('id', $pademMatchId)->first();
         if (!$padelMatch) {
             return $this->sendError('No Match Found.');
@@ -145,12 +163,12 @@ class HomeController extends Controller
             return $this->sendError("The community is full, you cannot join.");
         }
         try {
-            GroupMember::create([
+           $groupMember = GroupMember::create([
                 "group_id"=> $group->id,
                 "user_id"=> $user->id,
                 'status'=>0,
             ]);
-            $padelMatch->creator->notify(new MatchJoinRequestNotification($padelMatch, $user));
+            $padelMatch->creator->notify(new MatchJoinRequestNotification($padelMatch, $user,$groupMember));
             return $this->sendResponse([], 'Successfully sent join community request.');
         } catch (\Exception $e) {
             return $this->sendError('An error occurred while trying to join the match: ' . $e->getMessage(), 500);
@@ -161,7 +179,7 @@ class HomeController extends Controller
         try {
             $user = Auth::user();
             $homePage = [
-                'upcomingMatch' => $this->upcommingMatch(),
+                'upcomingMatch' => $this->upcommingMatch($request),
                 'nearbyClubs' => $this->nearByClubs($user),
                 'notificationCount'=>$this->notificationCount($user)
             ];
@@ -179,7 +197,7 @@ class HomeController extends Controller
             'count' => $notificationCount,
         ];
     }
-    private function upcommingMatch()
+    private function upcommingMatch($request)
     {
         $user = Auth::user();
         if (!$user) {
@@ -187,18 +205,24 @@ class HomeController extends Controller
         }
         $matches = PadelMatch::with('creator')
             ->orderBy('id', 'desc')
-            ->paginate(20);
-        if ($matches->isEmpty()) {
-            return $this->sendError("No matches found for your level.");
+            ->paginate($request->per_page ?? 10);
+        if ($matches->items() === []) {
+            return $this->sendError("No matches found.");
         }
         $client = new Client();
         $apiKey = env('GOOGLE_MAPS_API_KEY');
+
         $formattedMatches = $matches->map(function ($match) use ($client, $apiKey) {
             $location = $this->getLocationFromCoordinates($client, $match->latitude, $match->longitude, $apiKey);
             $creator = $match->creator;
             $group = Group::where('match_id', $match->id)->first();
             $playerCount = $group ? $group->members()->count() : 0;
             $canJoin = $playerCount < 8;
+
+            if (!$canJoin) {
+                return null;
+            }
+
             return [
                 'id' => $match->id,
                 'mind_text' => $match->mind_text,
@@ -210,19 +234,25 @@ class HomeController extends Controller
                     'id' => $creator->id,
                     'full_name' => $creator->full_name,
                     'matches_played' => $creator->matches_played,
-                    'image' => $creator->image ? url('Profile/', $creator->image) :  url('profile/','profile.jpg') ,
+                    'image' => $creator->image ? url('Profile/', $creator->image) : url('avatar/', 'profile.jpg'),
                     'level' => $creator->level,
                 ],
                 'created_at' => $match->created_at->format('Y-m-d H:i:s'),
                 'updated_at' => $match->updated_at->format('Y-m-d H:i:s'),
             ];
-        })->filter(function ($match) {
-            return $match['can_join'];
-        });
+        })->filter();
         $canJoinCount = $formattedMatches->count();
+
         return $this->sendResponse([
             'total_matches' => $canJoinCount,
-            'matches' => $formattedMatches,
+            'auth_user_level'=> $user->level,
+            'matches' => $formattedMatches->values(),
+            'pagination' => [
+                'current_page' => $matches->currentPage(),
+                'last_page' => $matches->lastPage(),
+                'per_page' => $matches->perPage(),
+                'total' => $matches->total(),
+            ]
         ], 'Matches retrieved successfully.');
     }
 
@@ -252,8 +282,15 @@ class HomeController extends Controller
                 'club_name' => $club->club_name,
                 'location' => $club->location,
                 'distance' => round($club->distance, 2) . ' km',
-                'banner' => $club->banner? url($club->banner) :url('avatar','club.jpg'),
+                'banner' => !empty($club->banners)
+                                ? collect(json_decode($club->banners, true) ?: [])
+                                    ->map(fn($banner) => file_exists(public_path('uploads/banners/' . $banner))
+                                        ? url('uploads/banners/' . $banner)
+                                        : url('avatar/club.jpg'))
+                                    ->toArray()
+                                : [url('avatar/profile.jpg')],
                 'website' => $club->website,
+                'map_navigator' => $this->clubDetails($club->id),
                 'status' => $club->status,
                 'created_at' => $club->created_at->format('Y-m-d H:i:s'),
                 'updated_at' => $club->updated_at->format('Y-m-d H:i:s'),
@@ -315,7 +352,7 @@ class HomeController extends Controller
         return $this->sendResponse($formattedMatches, 'Matches retrieved successfully.');
     }
 
-    public function clubDetails(Request $request, $id)
+    public function clubDetails($id)
     {
         $user = Auth::user();
         if (!$user || !$user->latitude || !$user->longitude) {
@@ -338,24 +375,7 @@ class HomeController extends Controller
         if (!$club) {
             return $this->sendError('Club not found or is too far away.', [], 404);
         }
-        $banners = collect(json_decode($club->banners, true) ?? [])
-            ->map(fn($banner) => url('uploads/banners/' . $banner))
-            ->toArray();
-        $mapNavigatorLink = "https://www.google.com/maps/dir/?api=1&destination={$club->latitude},{$club->longitude}&travelmode=driving";
-        $formattedClub = [
-            'id'          => $club->id,
-            'club_name'   => $club->club_name,
-            'location'    => $club->location,
-            'description' => $club->description,
-            'distance'    => round($club->distance, 2) . ' km',
-            'banners'     => $banners,
-            'website'     => $club->website,
-            'map_navigator' => $mapNavigatorLink,
-            'status'      => $club->status,
-            'created_at'  => $club->created_at->format('Y-m-d H:i:s'),
-            'updated_at'  => $club->updated_at->format('Y-m-d H:i:s'),
-        ];
+      return "https://www.google.com/maps/dir/?api=1&destination={$club->latitude},{$club->longitude}&travelmode=driving";
 
-        return $this->sendResponse($formattedClub, 'Club details retrieved successfully.');
     }
 }

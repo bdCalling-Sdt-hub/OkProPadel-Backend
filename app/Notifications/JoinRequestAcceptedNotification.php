@@ -19,22 +19,17 @@ class JoinRequestAcceptedNotification extends Notification
     {
         $this->group = $group;
     }
-
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
     public function via(object $notifiable): array
     {
         return ['database'];
     }
-
-
     public function toArray(object $notifiable): array
     {
         return [
             'message' => "Your request to join the group '{$this->group->name}' has been accepted.",
+            'group_image' => $this->group->image
+                            ? url('uploads/group/',$this->group->image)
+                            : url('avatar/community.jpg'),
             'created_at' => now()->toDateTimeString(),
         ];
     }

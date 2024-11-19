@@ -80,9 +80,9 @@ class ClubController extends Controller
         $location = $this->getLocationFromCoordinates($client, $request->latitude, $request->longitude, $apiKey);
         try {
             $club = Club::create([
-                'banners' => json_encode($imagePaths) ?? null,
+                'banners' => !empty($imagePaths) ? json_encode($imagePaths) : null,
                 'description'=> $request->description ?? null,
-                'activities' =>json_encode($activities) ?? null,
+                'activities' =>$activities?? null,
                 'club_name' => $request->club_name,
                 'location' => $location,
                 'latitude'  => $request->latitude,

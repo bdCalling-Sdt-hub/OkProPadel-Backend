@@ -13,6 +13,7 @@ use App\Models\TrailMatch;
 use App\Models\TrailMatchQuestion;
 use App\Models\User;
 use App\Models\Volunteer;
+use App\Notifications\AdjustLevelNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
@@ -144,7 +145,6 @@ class FeedbackController extends Controller
     }
     public function adjustLevel(Request $request, $userId)
     {
-        // Log::info('Request Payload:', $request->all());
         $validator = Validator::make($request->all(), [
             'action' => 'required|in:up,down',
         ]);
@@ -173,6 +173,7 @@ class FeedbackController extends Controller
         $user->level_name = $levelNames[$user->level] ?? 'Unknown';
         $user->adjust_status = $request->adjust_status;
         $user->save();
+        $user->notify(new AdjustLevelNotification($user));
         return $this->sendResponse([
             'level' => $user->level,
             'level_name' => $user->level_name,

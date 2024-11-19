@@ -13,31 +13,27 @@ class MatchJoinRequestNotification extends Notification
 
     protected $user;
     protected $match;
-
-    // Initialize the notification with the user and match
-    public function __construct($user, $match)
+    protected $groupMember;
+    public function __construct($user, $match, $groupMember)
     {
         $this->user = $user;
         $this->match = $match;
+        $this->groupMember = $groupMember;
     }
-
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
     public function via(object $notifiable): array
     {
         return ['database'];
     }
-
-
     public function toArray(object $notifiable): array
     {
         return [
             'padelMatch_id' => $this->match->id,
             'user_id' => $this->user->id,
             'full_name' => $this->user->full_name,
+            'image' => $this->user->image
+                            ? url('Profile/',$this->user->image)
+                            : url('avatar/profile.jpg'),
+            'status'=> $this->groupMember->status,
             'message' => $this->user->full_name . ' has requested to join your community.',
         ];
     }

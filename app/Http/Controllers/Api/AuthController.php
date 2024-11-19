@@ -140,7 +140,7 @@ class AuthController extends Controller
         $otp = rand(100000, 999999);
         $user->update([
             'otp' => $otp,
-            'otp_expires_at' => now()->addMinutes(10),
+            'otp_expires_at' => now()->addMinutes(1),
             'verify_email' => 0
         ]);
 
@@ -274,7 +274,7 @@ class AuthController extends Controller
 
     public function users()
     {
-        $users = User::where('status','active')->where('role', 'MEMBER')->paginate(10);
+        $users = User::where('status','active')->where('role', 'MEMBER')->whereNull('otp')->paginate(10);
         if ($users) {
             return $this->sendResponse($users, 'User retrieved successfully.');
         }
@@ -336,5 +336,24 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->sendError('Logout Error', ['error' => 'Failed to log out. Please try again.'], 500);
         }
+    }
+    public function userProfileImageUpdate(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
+        ]);
+        if ($validator->fails()) {
+            return $this->sendError('Validation Error.', $validator->errors(), 422);
+        }
+        $user = auth()->user();
+        if ($request->hasFile('image')) {
+            $imagePath = time() . '.' . $request->image->getClientOriginalExtension();
+            $request->image->move(public_path('profile'), $imagePath);
+            $image =$imagePath;
+        }
+        $user->image = $image ?? $user->image;
+        $user->save();
+
+        return $this->sendResponse($user, 'Profile updated successfully.');
     }
 }

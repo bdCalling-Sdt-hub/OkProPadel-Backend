@@ -20,12 +20,13 @@ use App\Notifications\EndMatchNotification;
 use App\Notifications\GroupInvitationNotification;
 use App\Notifications\JoinRequestAcceptedNotification;
 use App\Notifications\MatchAcceptedNotification;
-use App\Notifications\MemberMessageNotification;
 use App\Notifications\PadelMatchMemberAdded;
 use App\Notifications\StartCommunityMatchNotificication;
 use Auth;
+use DB;
 use File;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Validator;
 
 class MessageController extends Controller
@@ -361,15 +362,23 @@ class MessageController extends Controller
         });
         return $this->sendResponse($formattedMembers, 'Private message members retrieved successfully.');
     }
-    public function PrivateMessageAsRead($messageId)
+    public function privateMessagesAsRead(Request $request)
     {
-        $message = PrivateMessage::find($messageId);
-        if (!$message) {
-            return $this->sendError('Message not found.', [], 404);
-        }
-        $message->is_read = true;
-        $message->save();
-        return $this->sendResponse([], 'Message marked as read successfully.');
+        $userId = $request->user_id;
+        $messages = PrivateMessage::where(function ($query) use ($userId) {
+            $query->where('sender_id', $userId)
+                  ->orWhere('recipient_id', $userId);
+        })->where('is_read', false)->get();
+
+        // if ($messages->isEmpty()) {
+        //     return $this->sendError('No unread messages found for the user.', [], 404);
+        // }
+        PrivateMessage::where(function ($query) use ($userId) {
+            $query->where('sender_id', $userId)
+                  ->orWhere('recipient_id', $userId);
+        })->where('is_read', false)->update(['is_read' => true]);
+
+        return $this->sendResponse([], 'All unread messages for the user have been marked as read.');
     }
     public function getPrivateMessage(Request $request)
     {
@@ -669,13 +678,30 @@ class MessageController extends Controller
     public function getUserGroup()
     {
         $user = Auth::user();
+
+        // Get group IDs where the user is a member
         $groupIds = GroupMember::where('user_id', $user->id)->pluck('group_id');
-        $groups = Group::whereIn('id', $groupIds)->with('creator', 'messages')->orderBy('id', 'desc')->get();
+
+        // Retrieve groups with creator and messages
+        $groups = Group::whereIn('id', $groupIds)
+            ->with('creator', 'messages')
+            ->orderBy('id', 'desc')
+            ->get();
+
         if ($groups->isEmpty()) {
             return $this->sendError('No groups found for this user.', [], 404);
         }
-        $formattedGroups = $groups->map(function ($group) {
+
+        // Format groups with additional unread message count
+        $formattedGroups = $groups->map(function ($group) use ($user) {
             $lastMessage = $group->messages()->latest()->first();
+            $unreadCount = DB::table('group_message_user')
+            ->where('user_id', $user->id)
+            ->where('is_read', false)
+            ->whereIn('group_message_id', $group->messages->pluck('id'))
+            ->count();
+
+
             return [
                 'group_id' => $group->id,
                 'group_name' => $group->name,
@@ -689,17 +715,21 @@ class MessageController extends Controller
                     'message' => $lastMessage->message,
                     'sent_at' => $lastMessage->created_at->toDateTimeString(),
                 ] : null,
+                'unread_count' => $unreadCount,
                 'created_at' => $group->created_at->toDateTimeString(),
-                ];
-
+            ];
         });
 
+        // Return formatted response
         return $this->sendResponse(
-            ['data'=>$formattedGroups,
-            'user_id' =>$user->id,
-            ]
-            ,'User groups retrieved successfully.');
+            [
+                'data' => $formattedGroups,
+                'user_id' => $user->id,
+            ],
+            'User groups retrieved successfully.'
+        );
     }
+
     public function updateGroup(Request $request, $groupId)
     {
         // $validator = Validator::make($request->all(), [
@@ -749,10 +779,11 @@ class MessageController extends Controller
                     $imagePaths[] = $imageName;
                 }
             }
+            $user = Auth::user();
             $user_read = [auth()->user()->id];
             $message = $group->messages()->create([
                 'group_id' => $group->id,
-                'user_id' => auth()->id(),
+                'user_id' => $user->id,
                 'message' => $request->message,
                 'images' => json_encode($imagePaths),
                 'is_read'=> json_encode($user_read),
@@ -827,16 +858,26 @@ class MessageController extends Controller
     {
         $user = auth()->user();
         $message = GroupMessage::find($messageId);
-        if (!$message) {
-            return response()->json(['error' => 'Message not found'], 404);
+
+        // if (!$message) {
+        //     return response()->json(['error' => 'Message not found.'], 404);
+        // }
+
+        // Ensure user belongs to the group
+        if (!GroupMember::where('user_id', $user->id)->where('group_id', $message->group_id)->exists()) {
+            return response()->json(['error' => 'Unauthorized to mark this message as read.'], 403);
         }
+
+        // Check if user-message relationship exists in pivot table
         if (!$user->groupMessages()->where('group_message_id', $messageId)->exists()) {
             $user->groupMessages()->attach($messageId, ['is_read' => true]);
         } else {
             $user->groupMessages()->updateExistingPivot($messageId, ['is_read' => true]);
         }
+
         return response()->json(['message' => 'Message marked as read']);
     }
+
 
     public function getGroupMessages($groupId,Request $request)
     {
@@ -1010,7 +1051,7 @@ class MessageController extends Controller
 
     public function acceptGroupMemberRequest(Request $request,$matchId)
     {
-        $validatedData = $request->validate([
+         $request->validate([
             'user_id'  => 'required|exists:users,id',
         ]);
         $match = PadelMatch::where('id', $matchId)->first();
@@ -1031,6 +1072,12 @@ class MessageController extends Controller
         $membershipRequest->status = true;
         $membershipRequest->save();
 
+        $notification = Notification::find($request->notify_id);
+        if ($notification) {
+            $notification->update(['status' => 1]);
+        } else {
+            return $this->sendError('Notification not found.', [], 404);
+        }
         $user = User::find($request->user_id);
         $user->notify(new JoinRequestAcceptedNotification($group));
 

@@ -30,27 +30,24 @@ class DashboardController extends Controller
     }
     public function dashboardGraphData()
     {
-        $createdCommunityMonthly = PadelMatch::where('created_at', '>=', now()->startOfMonth())->count();
-        $createdCommunityWeekly = PadelMatch::where('created_at', '>=', now()->startOfWeek())->count();
-        $createdCommunityYearly = PadelMatch::where('created_at', '>=', now()->startOfYear())->count();
+        $currentYear = now()->year;
+        $monthlyData = collect(range(1, 12))->map(function ($month) use ($currentYear) {
+            $createdCount = PadelMatch::whereYear('created_at', $currentYear)
+                ->whereMonth('created_at', $month)
+                ->count();
 
-        $padelMatchPlayedMonthly = PadelMatchMemberHistory::where('created_at', '>=', now()->startOfMonth())->count() / 4;
-        $padelMatchPlayedWeekly = PadelMatchMemberHistory::where('created_at', '>=', now()->startOfWeek())->count() / 4;
-        $padelMatchPlayedYearly = PadelMatchMemberHistory::where('created_at', '>=', now()->startOfYear())->count() / 4;
-        $data = [
-            'labels' => ['Weekly', 'Monthly', 'Yearly'],
-            'created_community' => [
-                $createdCommunityWeekly,
-                $createdCommunityMonthly,
-                $createdCommunityYearly,
-            ],
-            'padel_match_played' => [
-                $padelMatchPlayedWeekly,
-                $padelMatchPlayedMonthly,
-                $padelMatchPlayedYearly,
-            ],
-        ];
+            $playedCount = PadelMatchMemberHistory::whereYear('created_at', $currentYear)
+                ->whereMonth('created_at', $month)
+                ->count() / 4;
 
-        return $this->sendResponse($data, 'Graph data retrieved successfully.');
+            return [
+                'month' => now()->month($month)->format('M'),
+                'created' => $createdCount,
+                'played' => $playedCount,
+            ];
+        });
+
+        return $this->sendResponse($monthlyData, "Monthly graph data for $currentYear retrieved successfully.");
     }
+
 }

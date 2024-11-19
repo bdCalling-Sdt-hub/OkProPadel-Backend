@@ -28,22 +28,32 @@ class ProfileController extends Controller
         if ($validator->fails()) {
             return $this->sendError($validator->errors()->first());
         }
-        $tarilmatch = TrailMatch::find($id);
-        if(!$tarilmatch){
+        $trailMatch = TrailMatch::find($id);
+        if(!$trailMatch){
             return $this->sendError('Not foun trail match.');
         }
-        $tarilmatch->game_status = $request->game_status;
-        $tarilmatch->save();
-
-        return $this->sendResponse([], "Trail Match started successfully");
+        $trailMatch->game_status = $request->game_status;
+        $trailMatch->save();
+        if($trailMatch->game_status == 'started')
+        {
+           $requestMatch = RequestTrailMacth::find($trailMatch->request_id);
+           $requestMatch->status = $request->game_status;
+           $requestMatch->save();
+        }elseif($trailMatch->game_status == 'ended')
+        {
+            $requestMatch = RequestTrailMacth::find($trailMatch->request_id);
+            $requestMatch->status = null;
+            $requestMatch->save();
+        }
+        return $this->sendResponse([], "Trail Match started or ended successfully");
     }
     public function getGameStatusTrailMatch( $id)
     {
-        $tarilmatch = TrailMatch::find($id);
-        if(!$tarilmatch){
+        $tmatch = TrailMatch::find($id);
+        if(!$tmatch){
             return $this->sendError('Not foun trail match.');
         }
-        return $this->sendResponse($tarilmatch->game_status, "Trail Match started successfully");
+        return $this->sendResponse($tmatch->game_status, "Trail Match started successfully");
     }
     public function TrailMatchStatus($trailMatchId)
     {
@@ -163,7 +173,7 @@ class ProfileController extends Controller
                     "data"=>[]
                 ], 404);
             }
-            if($requestTrailMatch->status =='approved'){
+            if($requestTrailMatch->status =='approved' || $requestTrailMatch->status =='accepted' || $requestTrailMatch->status =='started'){
                 $trailMatch = TrailMatch::where('request_id',$requestTrailMatch->id)->first();
             }
         return $this->sendResponse(
@@ -273,28 +283,39 @@ class ProfileController extends Controller
             'message' => 'User profile retrieved successfully.'
         ], 200);
     }
-    public function createdMatches()
+    public function createdMatches(Request $request)
     {
         $user = Auth::user();
-        $createdMatches = PadelMatch::where('creator_id', $user->id)->get();
+        $createdMatches = PadelMatch::where('creator_id', $request->anotherUserId ?? $user->id )->paginate($request->per_page ?? 10);
         $formattedMatches = $this->formatMatches($createdMatches);
         return response()->json([
             'success' => true,
             'data' => $formattedMatches,
+            'pagination' => [
+                'current_page' => $createdMatches->currentPage(),
+                'last_page' => $createdMatches->lastPage(),
+                'per_page' => $createdMatches->perPage(),
+                'total' => $createdMatches->total(),
+            ],
             'message' => 'Created matches retrieved successfully.'
         ], 200);
     }
-
-    public function joinedMatches()
+    public function joinedMatches(Request $request)
     {
         $user = Auth::user();
-        $joinedMatches = PadelMatchMember::where('user_id', $user->id)
+        $joinedMatches = PadelMatchMember::where('user_id', $request->anotherUserId ?? $user->id)
             ->with('padelMatch')
-            ->get();
+            ->paginate($request->per_page ?? 10);
         $formattedMatches = $this->formatMatches($joinedMatches->pluck('padelMatch'));
         return response()->json([
             'success' => true,
             'data' => $formattedMatches,
+            'pagination' => [
+                'current_page' => $joinedMatches->currentPage(),
+                'last_page' => $joinedMatches->lastPage(),
+                'per_page' => $joinedMatches->perPage(),
+                'total' => $joinedMatches->total(),
+            ],
             'message' => 'Joined matches retrieved successfully.'
         ], 200);
     }
@@ -335,14 +356,17 @@ class ProfileController extends Controller
             ];
         });
     }
-    public function trailMatches()
+    public function trailMatches(Request $request)
     {
         $user = Auth::user();
-        TrailMatch::where('user_id', $user->id)
+        TrailMatch::where('user_id', $request->anotherUserId ?? $user->id)
                     ->where('status', 1)
                     ->whereDate('date', '<', now())
                     ->update(['status' => 0]);
-        $trailMatches = TrailMatch::where('user_id', $user->id)->where('status',1)->orderBy('id','desc')->get();
+        $trailMatches = TrailMatch::where('user_id', $request->anotherUserId ?? $user->id)
+                                    ->where('status',1)
+                                    ->orderBy('id','desc')
+                                    ->paginate($request->per_page);
         if ($trailMatches->isEmpty()) {
             return response()->json([
                 'message' => 'No trail matches found.',
@@ -381,7 +405,15 @@ class ProfileController extends Controller
                 'created_at' => $trailMatch->created_at->format('Y-m-d H:i:s'),
             ];
         });
-        return $this->sendResponse($formattedTrailMatches, 'Trail matches retrieved successfully.');
+        return $this->sendResponse([
+          'data'=>$formattedTrailMatches,
+            'pagination' => [
+                'current_page' => $trailMatches->currentPage(),
+                'last_page' => $trailMatches->lastPage(),
+                'per_page' => $trailMatches->perPage(),
+                'total' => $trailMatches->total(),
+            ],
+        ], 'Trail matches retrieved successfully.');
     }
     private function getLocationFromCoordinates($client, $latitude, $longitude, $apiKey)
     {
