@@ -75,5 +75,5 @@ io.on('connection', (socket) => {
 });
 const PORT = 3000;
 server.listen(PORT, () => {
-    console.log(`Socket.IO server running at http://192.168.12.160:${PORT}`);
+    console.log(`Socket.IO server running at http://167.172.240.116:${PORT}`);
 });
