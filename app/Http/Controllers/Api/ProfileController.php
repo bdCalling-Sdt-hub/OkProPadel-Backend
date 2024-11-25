@@ -310,6 +310,7 @@ class ProfileController extends Controller
         return response()->json([
             'success' => true,
             'data' => $formattedMatches,
+            'auth_id'=>auth()->user()->id,
             'pagination' => [
                 'current_page' => $joinedMatches->currentPage(),
                 'last_page' => $joinedMatches->lastPage(),
@@ -336,6 +337,10 @@ class ProfileController extends Controller
             }
             $creator = User::find($match->creator_id);
             $creatorName = $creator ? $creator->full_name : 'Unknown';
+            $creatorId = $creator->id;
+            $creatorMatchesPlayed = $creator->matches_played;
+            $creatorLevel = $creator->level;
+            $creatorImage = $creator->image ? url('Profile/',$creator->image) : url('avatar/profile.jpg');
 
             $createdMatchesCount = PadelMatch::where('creator_id', $match->creator_id)->count();
             $group = Group::where('match_id', $match->id)->first();
@@ -348,7 +353,13 @@ class ProfileController extends Controller
                 'level' => $match->level,
                 'level_name' => $match->level_name,
                 'location' => $location,
-                'creator_name' => $creatorName,
+                'creator' =>[
+                    'id'=>$creatorId,
+                    'full_name' => $creatorName,
+                    'matches_played' => $creatorMatchesPlayed,
+                    'level' => $creatorLevel,
+                    'image' => $creatorImage,
+                ],
                 'creator_matches_count' => $createdMatchesCount,
                 'player_count' => $playerCount,
                 'join' => $join,

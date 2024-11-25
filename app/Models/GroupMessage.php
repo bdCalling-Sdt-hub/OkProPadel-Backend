@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class GroupMessage extends Model
 {
     use HasFactory;
-    protected $fillable = ['group_id', 'user_id', 'message', 'images'];
+    protected $fillable = ['group_id', 'user_id', 'message', 'images','read_by','is_read'];
 
     protected $casts = [
         'images' => 'array',

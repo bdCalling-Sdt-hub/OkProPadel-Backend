@@ -99,7 +99,7 @@ class HomeController extends Controller
                 $q->where('full_name', 'like', '%' . $keyword . '%');
             });
         }
-        $matches = $query->paginate($request->per_page);
+        $matches = $query->orderBy('id','desc')->paginate($request->per_page);
         $client = new Client();
         $formattedMatches = $matches->map(function ($match) use ($client) {
             $location = $this->getLocationFromCoordinates($client, $match->latitude, $match->longitude, env('GOOGLE_MAPS_API_KEY'));
@@ -128,6 +128,7 @@ class HomeController extends Controller
         return $this->sendResponse(
             [
                 'auth_user_level'=> Auth::user()->level,
+                'auth_user_id'=> Auth::user()->id,
                'formattedMatches'=>$formattedMatches,
                'nearbyClubs' =>$this->nearByClubs(Auth::user()),
                 'pagination' => [
@@ -264,18 +265,26 @@ class HomeController extends Controller
         $userLatitude = $user->latitude;
         $userLongitude = $user->longitude;
         $distanceLimit = 10;
+        $maxDistanceLimit = 50; // Maximum distance limit
+        $clubs = collect(); // Empty collection for clubs
 
-        $clubs = Club::selectRaw("
-                *,
-                (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance
-            ", [$userLatitude, $userLongitude, $userLatitude])
-            ->having('distance', '<=', $distanceLimit)
-            ->orderBy('distance')
-            ->get();
+        while ($clubs->isEmpty() && $distanceLimit <= $maxDistanceLimit) {
+            $clubs = Club::selectRaw("
+                    *,
+                    (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance
+                ", [$userLatitude, $userLongitude, $userLatitude])
+                ->having('distance', '<=', $distanceLimit)
+                ->orderBy('distance')
+                ->get();
 
-        if ($clubs->isEmpty()) {
-            return $this->sendError("No nearby clubs found.");
+            if ($clubs->isEmpty()) {
+                $distanceLimit += 10; // Increase the distance limit
+            }
         }
+
+        // if ($clubs->isEmpty()) {
+        //     return $this->sendError("No nearby clubs found.");
+        // }
         $formattedClubs = $clubs->map(function ($club) {
             return [
                 'id' => $club->id,

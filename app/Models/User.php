@@ -67,5 +67,10 @@ class User extends Authenticatable
                     ->withPivot('is_read')
                     ->withTimestamps();
     }
+    public function groups()
+    {
+        return $this->belongsToMany(Group::class, 'group_members', 'user_id', 'group_id');
+    }
+
 
 }

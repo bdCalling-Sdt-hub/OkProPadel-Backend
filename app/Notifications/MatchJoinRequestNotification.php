@@ -14,7 +14,7 @@ class MatchJoinRequestNotification extends Notification
     protected $user;
     protected $match;
     protected $groupMember;
-    public function __construct($user, $match, $groupMember)
+    public function __construct($match, $user, $groupMember)
     {
         $this->user = $user;
         $this->match = $match;

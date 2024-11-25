@@ -101,8 +101,9 @@ Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => Message
     Route::put('update-private-message/{privateMessageId}', 'UpdateMessage');
     Route::get('get-private-message', 'getPrivateMessage');
     Route::post('private-message-read', 'privateMessagesAsRead');
-    Route::post('block-private-message', 'BlockPrivateMessage');
+    Route::post('block-private-message-member', 'BlockPrivateMessage');
     Route::post('unblock-private-message', 'UnblockPrivateMessage');
+    Route::get('block-status', 'blockStatus');
 });
 Route::group(['middleware' => ['auth:sanctum','member'], 'controller' => HomeController::class], function () {
     Route::get('viewMatch','viewMatch');
@@ -176,7 +177,7 @@ Route::group(['middleware' => ['auth:sanctum'], 'controller' => SettingControlle
     Route::put('personalInformation', [SettingController::class,'personalInformation'])->middleware(['auth:sanctum','admin']);
     Route::get('getpersonalInformation', [SettingController::class,'getPersonalInformation'])->middleware(['auth:sanctum','admin']);
     Route::apiResource('faqs',FaqController::class)->middleware(['auth:sanctum','admin']);
-    Route::apiResource('terms-and-conditions',TermAndConditionController::class)->middleware(['auth:sanctum','admin']);
+    Route::put('terms-and-conditions',[TermAndConditionController::class,'createOrUpdate'])->middleware(['auth:sanctum','admin']);
     Route::apiResource('abouts',AboutController::class)->middleware(['auth:sanctum','admin']);
     Route::apiResource('abouts',AboutController::class)->middleware(['auth:sanctum','member'])->only(['index']);
     Route::apiResource('terms-and-conditions',TermAndConditioncontroller::class)->middleware(['auth:sanctum','member'])->only(['index']);

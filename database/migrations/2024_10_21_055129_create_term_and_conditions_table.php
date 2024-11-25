@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('term_and_conditions', function (Blueprint $table) {
             $table->id();
-            $table->longText('content')->default('Welcome to my app.');
+            $table->longText('content')->nullable();
             $table->boolean('status')->default(true);
             $table->timestamps();
         });

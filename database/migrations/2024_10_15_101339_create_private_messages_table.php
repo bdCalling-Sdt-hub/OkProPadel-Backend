@@ -19,6 +19,7 @@ return new class extends Migration
             $table->json('images')->nullable();
             $table->boolean('is_read')->default(false);
             $table->boolean('block')->default(false);
+            // $table->foreignId('block_id')->nullable();
             $table->timestamps();
         });
     }

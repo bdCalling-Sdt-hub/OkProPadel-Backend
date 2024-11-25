@@ -13,39 +13,33 @@ class TermAndConditionController extends Controller
     {
         $termAndCondition = TermAndCondition::where('status',1)->first();
         if (!$termAndCondition) {
-            return $this->sendError("No Term and Condition Found.");
+            $data = "No term and conditions founds.";
+            return $this->sendResponse($data,"No Term and Condition Found.");
         }
         return $this->sendResponse($termAndCondition, 'Term and condition retrieved successfully.');
     }
-
-    public function update(Request $request, $id)
+    public function createOrUpdate(Request $request)
     {
-        $terms = TermAndCondition::find($id);
-        if (!$terms) {
-            $validator = Validator::make($request->all(), [
-                'content' => 'required|string',
-                'status' => 'boolean',
-            ]);
-            if ($validator->fails()) {
-                return $this->sendError('Validation error.', $validator->errors(), 400);
-            }
-            TermAndCondition::create([
-                'content' => $request->content,
-                'status' => $request->status ?? $terms->status,
-            ]);
-            return $this->sendResponse($terms, 'Terms and conditions created successfully.');
-        }
         $validator = Validator::make($request->all(), [
             'content' => 'required|string',
-            'status' => 'boolean',
+            'status' => 'nullable|boolean',
         ]);
         if ($validator->fails()) {
             return $this->sendError('Validation error.', $validator->errors(), 400);
         }
-        $terms->update([
+        $terms = TermAndCondition::first();
+        if ($terms) {
+            $terms->update([
+                'content' => $request->content,
+                'status' => $request->status ?? $terms->status,
+            ]);
+            return $this->sendResponse($terms, 'Terms and conditions updated successfully.');
+        }
+        $data = TermAndCondition::create([
             'content' => $request->content,
-            'status' => $request->status ?? $terms->status,
+            'status' => $request->status ?? true,
         ]);
-        return $this->sendResponse($terms, 'Terms and conditions updated successfully.');
+        return $this->sendResponse($data, 'Terms and conditions created successfully.');
     }
+
 }

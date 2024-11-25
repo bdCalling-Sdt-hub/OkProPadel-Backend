@@ -42,7 +42,7 @@ class FeedbackController extends Controller
                 'image' => /* $member->user->image ? url('Profile/',$member->user->image) : */ url('avatar/profile.jpg'),
 
 
-                'adjust_status' => $member->user->adjust_status ?? 'N/A',
+                'adjust_status' => $member->user->adjust_level ?? 'N/A',
                 'matches_played' => $member->user->matches_played ?? 'N/A',
                 'level' => $member->user->level ?? 'N/A',
                 'level_name' => $member->user->level_name ?? 'N/A',
@@ -79,7 +79,7 @@ class FeedbackController extends Controller
                 'trail_match_id' => $answer->trail_match_id,
                 'user_id' => $answer->user->id,
                 'full_name' => $answer->user->full_name ?? 'N/A',
-                'adjust_status' => $answer->user->adjust_status ?? 'N/A',
+                'adjust_status' => $answer->user->adjust_level ?? 'N/A',
                 'email' => $answer->user->email ?? 'N/A',
                 'level' => $answer->user->level ?? 'N/A',
                 'level_name' => $answer->user->level_name ?? 'N/A',
@@ -145,6 +145,7 @@ class FeedbackController extends Controller
     }
     public function adjustLevel(Request $request, $userId)
     {
+
         $validator = Validator::make($request->all(), [
             'action' => 'required|in:up,down',
         ]);
@@ -164,20 +165,19 @@ class FeedbackController extends Controller
             4 => 'Advanced',
             5 => 'Professional',
         ];
-
         $action = $request->action;
         if (($action === 'up' && $user->level >= $maxLevel) || ($action === 'down' && $user->level <= $minLevel)) {
             return $this->sendError('Invalid action or level limits reached.');
         }
         $user->level += ($action === 'up') ? 1 : -1;
         $user->level_name = $levelNames[$user->level] ?? 'Unknown';
-        $user->adjust_status = $request->adjust_status;
+        $user->adjust_level = $request->adjust_status;
         $user->save();
         $user->notify(new AdjustLevelNotification($user));
         return $this->sendResponse([
             'level' => $user->level,
             'level_name' => $user->level_name,
-            'adjust_status' => $user->adjust_status,
+            'adjust_status' => $user->adjust_level,
         ], 'User level adjusted successfully.');
     }
 }

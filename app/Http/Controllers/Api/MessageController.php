@@ -8,6 +8,7 @@ use App\Models\Feedback;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\GroupMessage;
+use App\Models\GroupMessageUser;
 use App\Models\Invitation;
 use App\Models\PadelMatch;
 use App\Models\PadelMatchMember;
@@ -111,35 +112,79 @@ class MessageController extends Controller
     public function blockPrivateMessage(Request $request)
     {
         $request->validate([
-            'message_id' => 'required|integer|exists:private_messages,id',
+            'recipient_id' => 'required|integer|exists:users,id',
         ]);
-        $message = PrivateMessage::find($request->message_id);
-        if (!$message) {
-            return response()->json(['error' => 'Message not found.'], 404);
-        }
-        if ($message->sender_id !== Auth::id() && $message->recipient_id !== Auth::id()) {
-            return response()->json(['error' => 'You do not have permission to block this message.'], 403);
-        }
-        $message->block = true;
-        $message->save();
-        return response()->json(['message' => 'Message blocked successfully.']);
+       $privateMessage = PrivateMessage::create([
+            'sender_id' => Auth::user()->id,
+            'recipient_id'=> $request->recipient_id,
+            'block'=> true,
+        ]);
+        return response()->json([
+            'message' => 'User blocked successfully.',
+            'status'=> $privateMessage->block,
+            'recipient_id'=> $privateMessage->recipient_id,
+        ], 200);
     }
     public function unblockPrivateMessage(Request $request)
     {
         $request->validate([
-            'message_id' => 'required|integer|exists:private_messages,id',
+            'recipient_id' => 'required|integer|exists:users,id',
         ]);
-        $message = PrivateMessage::find($request->message_id);
-
-        if (!$message) {
-            return response()->json(['error' => 'Message not found.'], 404);
+        $message = PrivateMessage::where('sender_id', Auth::user()->id)
+                                 ->where('recipient_id', $request->recipient_id)
+                                 ->where('block', true)
+                                 ->first();
+        if ($message) {
+            $message->block = false;
+            $message->save();
+            return response()->json(['message' => 'User unblocked successfully.'], 200);
         }
-        if ($message->sender_id !== Auth::id() && $message->recipient_id !== Auth::id()) {
-            return response()->json(['error' => 'You do not have permission to unblock this message.'], 403);
+        return response()->json(['message' => 'No block record found for the user.'], 404);
+    }
+    public function blockStatus(Request $request)
+    {
+        $request->validate([
+            'recipient_id' => 'required|integer|exists:users,id',
+        ]);
+        $authId = Auth::id();
+        $recipientId = $request->recipient_id;
+        $authBlockedRecipient = PrivateMessage::where('sender_id', $authId)
+                                                ->where('recipient_id', $recipientId)
+                                                ->orderBy('id', 'desc')
+                                                ->first();
+        $recipientBlockedAuth = PrivateMessage::where('sender_id', $recipientId)
+                                                ->where('recipient_id', $authId)
+                                                ->orderBy('id', 'desc')
+                                                ->first();
+        $authUser = User::find($authId);
+        $recipientUser = User::find($recipientId);
+        $formattedAuthUser = $this->formatUserData($authUser);
+        $formattedRecipientUser = $this->formatUserData($recipientUser);
+        return response()->json([
+            'message' => 'Block status retrieved successfully.',
+            'data' => [
+                'auth_blocked_recipient' => $authBlockedRecipient ? $authBlockedRecipient->block : false,
+                'recipient_blocked_auth' => $recipientBlockedAuth ? $recipientBlockedAuth->block : false,
+                'recipient_id' => $recipientId,
+                'auth_id' => $authId,
+                'auth_user' => $formattedAuthUser,
+                'recipient_user' => $formattedRecipientUser,
+            ],
+        ], 200);
+    }
+    private function formatUserData($user)
+    {
+        if (!$user) {
+            return null;
         }
-        $message->block = false;
-        $message->save();
-        return response()->json(['message' => 'Message unblocked successfully.']);
+        return [
+            'id' => $user->id,
+            'full_name' => $user->full_name,
+            'level' => $user->level,
+            'matches_played' => $user->matches_played,
+            'email' => $user->email,
+            'image' => $user->image ? url('Profile/' . $user->image) : url('avatar/profile.jpg'),
+        ];
     }
     public function startGame(Request $request)
     {
@@ -335,13 +380,12 @@ class MessageController extends Controller
         }
         $formattedMembers = $userMembers->map(function ($user) use ($userId) {
             $lastMessage = PrivateMessage::where(function ($query) use ($userId, $user) {
-                    $query->where('sender_id', $userId)->where('recipient_id', $user->id);
-                })
-                ->orWhere(function ($query) use ($userId, $user) {
-                    $query->where('sender_id', $user->id)->where('recipient_id', $userId);
-                })
-                ->orderBy('created_at', 'desc')
-                ->first();
+                $query->whereIn('sender_id', [$userId, $user->id])
+                      ->whereIn('recipient_id', [$userId, $user->id]);
+            })
+            ->orderBy('created_at', 'desc')
+            ->first();
+
             $unreadCount = PrivateMessage::where(function ($query) use ($userId, $user) {
                     $query->where('sender_id', $user->id)->where('recipient_id', $userId);
                 })
@@ -365,20 +409,17 @@ class MessageController extends Controller
     public function privateMessagesAsRead(Request $request)
     {
         $userId = $request->user_id;
-        $messages = PrivateMessage::where(function ($query) use ($userId) {
-            $query->where('sender_id', $userId)
-                  ->orWhere('recipient_id', $userId);
-        })->where('is_read', false)->get();
+        $authUserId = auth()->id();
+        PrivateMessage::where(function ($query) use ($userId, $authUserId) {
+                $query->where('sender_id', $userId)
+                      ->orWhere('recipient_id', $userId)
+                      ->orWhere('sender_id', $authUserId)
+                      ->orWhere('recipient_id', $authUserId);
+            })
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
 
-        // if ($messages->isEmpty()) {
-        //     return $this->sendError('No unread messages found for the user.', [], 404);
-        // }
-        PrivateMessage::where(function ($query) use ($userId) {
-            $query->where('sender_id', $userId)
-                  ->orWhere('recipient_id', $userId);
-        })->where('is_read', false)->update(['is_read' => true]);
-
-        return $this->sendResponse([], 'All unread messages for the user have been marked as read.');
+        return $this->sendResponse([], 'All unread messages for the specified user and authenticated user have been marked as read.');
     }
     public function getPrivateMessage(Request $request)
     {
@@ -391,11 +432,17 @@ class MessageController extends Controller
         }
         $authUserId = Auth::id();
         $recipientId = $request->recipient_id;
+        $receipent = User::find($recipientId);
+
         $perPage = $request->per_page ?? 15;
         $messages = PrivateMessage::with(['sender', 'recipient'])
             ->where(function ($query) use ($authUserId, $recipientId) {
                 $query->whereIn('sender_id', [$authUserId, $recipientId])
                     ->whereIn('recipient_id', [$authUserId, $recipientId]);
+            })
+            ->where(function ($query) {
+                $query->whereNotNull('message')
+                    ->orWhereNotNull('images');
             })
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
@@ -425,7 +472,17 @@ class MessageController extends Controller
             ];
         });
         return $this->sendResponse([
-            'recipient_id' => $recipientId,
+            'recipient_id' => $receipent->id,
+            'recipient'=> [
+                'id' => $receipent->id,
+                'full_name' => $receipent->full_name,
+                'email' =>  $receipent->email,
+                'matches_played' =>  $receipent->matches_played,
+                'level' =>  $receipent->level,
+                'image' => $receipent->image
+                        ? url('Profile/', $receipent->image)
+                        : url('avatar/profile.jpg')
+            ],
             'sender' => [
                 'id' => $messages->first()->sender->id,
                 'full_name' => $messages->first()->sender->full_name,
@@ -508,7 +565,7 @@ class MessageController extends Controller
         })
         ->exists();
         if ($blockCheck) {
-            return $this->sendError('You cannot send messages to this user. User is blocked.', [], 403);
+            return $this->sendResponse('You cannot send messages to this user. User is blocked.', []);
         }
         $imagePaths = [];
         if ($request->hasFile('images')) {
@@ -692,15 +749,12 @@ class MessageController extends Controller
             return $this->sendError('No groups found for this user.', [], 404);
         }
 
-        // Format groups with additional unread message count
         $formattedGroups = $groups->map(function ($group) use ($user) {
             $lastMessage = $group->messages()->latest()->first();
-            $unreadCount = DB::table('group_message_user')
-            ->where('user_id', $user->id)
-            ->where('is_read', false)
-            ->whereIn('group_message_id', $group->messages->pluck('id'))
-            ->count();
-
+            $unreadCount = GroupMessage::where('group_id', $group->id)
+                ->where('is_read', true)
+                ->whereRaw(' NOT JSON_CONTAINS(read_by, ?)', [json_encode(auth()->id())])
+                ->count();
 
             return [
                 'group_id' => $group->id,
@@ -780,14 +834,17 @@ class MessageController extends Controller
                 }
             }
             $user = Auth::user();
-            $user_read = [auth()->user()->id];
+            $readBy = [$user->id];
             $message = $group->messages()->create([
                 'group_id' => $group->id,
                 'user_id' => $user->id,
                 'message' => $request->message,
                 'images' => json_encode($imagePaths),
-                'is_read'=> json_encode($user_read),
+                'is_read' => true,
+                'read_by' => json_encode($readBy),
+
             ]);
+
             return $this->sendResponse($message, 'Message sent successfully.');
         } catch (\Exception $e) {
             return $this->sendError('Failed to send message.', ['error' => $e->getMessage()], 500);
@@ -854,28 +911,29 @@ class MessageController extends Controller
         $groupMessage->delete();
         return $this->sendResponse([], 'Group message deleted successfully.');
     }
-    public function messageIsRead(Request $request, $messageId)
+    public function messageIsRead(Request $request,$groupId)
     {
-        $user = auth()->user();
-        $message = GroupMessage::find($messageId);
-
-        // if (!$message) {
-        //     return response()->json(['error' => 'Message not found.'], 404);
-        // }
-
-        // Ensure user belongs to the group
-        if (!GroupMember::where('user_id', $user->id)->where('group_id', $message->group_id)->exists()) {
-            return response()->json(['error' => 'Unauthorized to mark this message as read.'], 403);
+        $userId = auth()->user()->id;
+        $group = Group::find($groupId);
+        if(!$group)
+        {
+            return $this->sendError('Group not found.');
         }
-
-        // Check if user-message relationship exists in pivot table
-        if (!$user->groupMessages()->where('group_message_id', $messageId)->exists()) {
-            $user->groupMessages()->attach($messageId, ['is_read' => true]);
-        } else {
-            $user->groupMessages()->updateExistingPivot($messageId, ['is_read' => true]);
+        $unreadMessages = GroupMessage::where('group_id', $group->id)
+            ->whereJsonDoesntContain('read_by', $userId)
+            ->get();
+        if ($unreadMessages->isEmpty()) {
+            return $this->sendResponse([], 'No unread messages for this group.');
         }
-
-        return response()->json(['message' => 'Message marked as read']);
+        foreach ($unreadMessages as $message) {
+            $readBy = json_decode($message->read_by, true) ?? [];
+            if (!in_array($userId, $readBy)) {
+                $readBy[] = $userId;
+            }
+            $message->read_by = json_encode(array_unique($readBy));
+            $message->is_read = true;
+            $message->save();
+        }
     }
 
 
@@ -902,17 +960,7 @@ class MessageController extends Controller
                 'image' => $member->image ? url('Profile/' . $member->image) : url('avatar/profile.jpg'),
             ];
         });
-        $lastMessage = $group->messages()
-            ->orderBy('id', 'desc')
-            ->first();
-            $unreadCount = $user->groupMessages()
-            ->wherePivot('is_read', false) // Access the pivot table's is_read field
-            ->count();
-        //   $unreadCount = $user->groupMessages()
-        //     ->join('group_messages', 'group_messages.id', '=', 'group_message_user.group_message_id')
-        //     ->where('group_messages.group_id', $groupId)
-        //     ->where('group_message_user.is_read', false)
-        //     ->count();
+
         $groupName = $group->name;
         $groupImage = $group->image ? url('uploads/group/' . $group->image) : url('avatar/community.jpg');
         $formattedMessages = $group->messages()
@@ -942,11 +990,6 @@ class MessageController extends Controller
             'padel_match' => $padelMatch,
             'group_image' => $groupImage,
             'members' => $members,
-            'last_message' => $lastMessage ? [
-                'message' => $lastMessage->message,
-                'created_at' => $lastMessage->created_at->toDateTimeString(),
-            ] : null,
-            'unread_count' => $unreadCount ?? 0,
         ];
         return $this->sendResponse($groupMessages, 'Group messages retrieved successfully.');
     }
@@ -1049,19 +1092,23 @@ class MessageController extends Controller
         return $this->sendError('User or notification ID not found.', [], 404);
     }
 
-    public function acceptGroupMemberRequest(Request $request,$matchId)
+    public function acceptGroupMemberRequest(Request $request, $matchId)
     {
-         $request->validate([
+        $request->validate([
             'user_id'  => 'required|exists:users,id',
+            'notify_id' => 'required|exists:notifications,id', // Ensure notify_id is provided
         ]);
-        $match = PadelMatch::where('id', $matchId)->first();
-        if(!$match) {
+
+        $match = PadelMatch::find($matchId);
+        if (!$match) {
             return $this->sendError('Not found match', [], 404);
         }
-        $group = Group::where('match_id',$match->id)->first();
+
+        $group = Group::where('match_id', $match->id)->first();
         if (!$group) {
             return $this->sendError('Group not found.', [], 404);
         }
+
         $membershipRequest = GroupMember::where('group_id', $group->id)
             ->where('user_id', $request->user_id)
             ->where('status', false)
@@ -1069,18 +1116,22 @@ class MessageController extends Controller
         if (!$membershipRequest) {
             return $this->sendError('Member already approved.', [], 404);
         }
+
         $membershipRequest->status = true;
         $membershipRequest->save();
 
-        $notification = Notification::find($request->notify_id);
+        // Query the notifications table directly
+        $notification = DB::table('notifications')->where('id', $request->notify_id)->first();
         if ($notification) {
-            $notification->update(['status' => 1]);
+            DB::table('notifications')->where('id', $request->notify_id)->update(['read_at' => now()]);
         } else {
             return $this->sendError('Notification not found.', [], 404);
         }
+
         $user = User::find($request->user_id);
         $user->notify(new JoinRequestAcceptedNotification($group));
 
         return $this->sendResponse([], 'Community request accepted successfully.');
     }
+
 }
