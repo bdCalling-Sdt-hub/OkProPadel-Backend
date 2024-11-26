@@ -106,9 +106,11 @@ class HomeController extends Controller
             $group = Group::where('match_id',$match->id)->first();
             $playerCount = $group->members()->count();
             $join =$playerCount ? $playerCount < 8 : true;
+            $isMember = $group->members()->where('user_id', auth()->id())->exists();
 
             return [
                 'id' => $match->id,
+                'is_member' => $isMember ? true : false,
                 'mind_text' => $match->mind_text,
                 'selected_level' => $match->selected_level,
                 'level' => $match->level,
