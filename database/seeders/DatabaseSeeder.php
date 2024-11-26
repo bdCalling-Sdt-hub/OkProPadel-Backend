@@ -13,8 +13,8 @@ class DatabaseSeeder extends Seeder
     {
        User::create([
         "id"=> 1,
-        "full_name"=> "Admin",
-        "email"=> "admin@gmail.com",
+        "full_name"=> "Maria",
+        "email"=> "mariapicio4@gmail.com",
         "password"=> Hash::make("12345678"),
         "role"=> "ADMIN",
         "status"=> "active",
