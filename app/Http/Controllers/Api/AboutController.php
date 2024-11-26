@@ -18,9 +18,9 @@ class AboutController extends Controller
         return $this->sendResponse($about, 'About retrieved successfully.');
     }
 
-    public function update(Request $request, $id)
+    public function aboutUs(Request $request)
     {
-        $terms = About::find($id);
+        $terms = About::first();
         if (!$terms) {
             $validator = Validator::make($request->all(), [
                 'about' => 'required|string',

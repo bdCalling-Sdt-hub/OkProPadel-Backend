@@ -179,6 +179,7 @@ Route::group(['middleware' => ['auth:sanctum'], 'controller' => SettingControlle
     Route::apiResource('faqs',FaqController::class)->middleware(['auth:sanctum','admin']);
     Route::put('terms-and-conditions',[TermAndConditionController::class,'createOrUpdate'])->middleware(['auth:sanctum','admin']);
     Route::apiResource('abouts',AboutController::class)->middleware(['auth:sanctum','admin']);
+    Route::post('about-us',[AboutController::class,'aboutUs'])->middleware(['auth:sanctum','admin']);
     Route::apiResource('abouts',AboutController::class)->middleware(['auth:sanctum','member'])->only(['index']);
     Route::apiResource('terms-and-conditions',TermAndConditioncontroller::class)->middleware(['auth:sanctum','member'])->only(['index']);
     Route::apiResource('terms-and-conditions',TermAndConditionController::class)->middleware(['auth:sanctum','member'])->only(['index']);
