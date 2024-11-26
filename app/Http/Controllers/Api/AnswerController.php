@@ -44,7 +44,7 @@ class AnswerController extends Controller
                 } elseif ($totalValue >= 21 && $totalValue <= 30) {
                     $request->user()->update(['level' => '2','level_name'=>'Lower-Intermediate', 'points' => $totalValue]);
                 } elseif ($totalValue >= 31 && $totalValue <= 35) {
-                    $request->user()->update(['level' => '3','level_name'=>'Upper-Intermediate', 'points' => $totalValue]);
+                    $request->user()->update(['level' => '3','level_name'=>'Intermediate', 'points' => $totalValue]);
                 } elseif ($totalValue >= 36 && $totalValue <= 40) {
                     $request->user()->update(['level' => '4','level_name'=>'Advanced', 'points' => $totalValue]);
                 } else {

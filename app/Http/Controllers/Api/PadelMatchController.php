@@ -150,7 +150,7 @@ class PadelMatchController extends Controller
                 'creator_id'    => auth()->user()->id,
             ]);
             $group = Group::create([
-                'name' => "new community",
+                'name' => "Group",
                 'match_id' => $padelMatch->id,
                 'creator_id'=> auth()->user()->id,
                 'image'=> null

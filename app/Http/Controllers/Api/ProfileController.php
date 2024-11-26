@@ -449,7 +449,7 @@ class ProfileController extends Controller
         $levelNames = [
             1 => 'Beginner',
             2 => 'Lower-Intermediate',
-            3 => 'Upper-Intermediate',
+            3 => 'Intermediate',
             4 => 'Advanced',
             5 => 'Professional',
         ];

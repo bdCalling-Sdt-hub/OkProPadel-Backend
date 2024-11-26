@@ -25,7 +25,7 @@ class VolunteerController extends Controller
         $roleLevels = [
             'Beginner' => 1,
             'Lower-Intermediate' => 2,
-            'Upper-Intermediate' => 3,
+            'Intermediate' => 3,
             'Advanced' => 4,
             'Professional' => 5,
         ];

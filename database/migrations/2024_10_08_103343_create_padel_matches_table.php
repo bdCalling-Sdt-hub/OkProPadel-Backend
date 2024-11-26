@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('mind_text',120);
             $table->string('selected_level');
             $table->enum('level', ['1','2','3','4','5']);
-            $table->enum('level_name', ['Beginner','Lower-Intermediate','Upper-Intermediate','Advanced','Professonal']);
+            $table->enum('level_name', ['Beginner','Lower-Intermediate','Intermediate','Advanced','Professonal']);
             $table->foreignId('creator_id')->constrained('users');
             $table->string('status')->nullable();
             $table->timestamps();

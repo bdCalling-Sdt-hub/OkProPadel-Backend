@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('longitude', 10, 7)->nullable();
             $table->string('website')->nullable();
             $table->longText('activities')->nullable();
-            $table->string('description')->nullable();
+            $table->longText('description')->nullable();
             $table->boolean('status')->default(false);
             $table->timestamps();
         });

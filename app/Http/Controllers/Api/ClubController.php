@@ -54,8 +54,8 @@ class ClubController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'description'=> 'nullable|string|max:255',
-            'activities' => 'nullable|string|max:50000',
+            'description'=> 'nullable|string',
+            'activities' => 'nullable|string',
             'club_name'  => 'required|string|unique:clubs,club_name',
             'latitude'   => 'required|string',
             'longitude'  => 'required|string',
