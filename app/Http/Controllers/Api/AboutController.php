@@ -13,7 +13,8 @@ class AboutController extends Controller
     {
         $about = About::where('status',1)->first();
         if (!$about) {
-            return $this->sendError(" About not Found.");
+            $data = 'No about found.';
+            return $this->sendResponse($data,"No about found.");
         }
         return $this->sendResponse($about, 'About retrieved successfully.');
     }
