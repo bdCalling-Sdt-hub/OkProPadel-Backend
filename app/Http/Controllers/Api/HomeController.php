@@ -107,10 +107,11 @@ class HomeController extends Controller
             $playerCount = $group->members()->count();
             $join =$playerCount ? $playerCount < 8 : true;
             $isMember = $group->members()->where('user_id', auth()->id())->exists();
+            $isCreator = $match->creator_id == auth()->id();
 
             return [
                 'id' => $match->id,
-                'is_member' => $isMember ? true : false,
+                'is_member' => $isMember &&  $isCreator ? true : false,
                 'mind_text' => $match->mind_text,
                 'selected_level' => $match->selected_level,
                 'level' => $match->level,
