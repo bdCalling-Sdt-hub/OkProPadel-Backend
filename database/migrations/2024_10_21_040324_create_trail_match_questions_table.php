@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('trail_match_questions', function (Blueprint $table) {
             $table->id();
-            $table->string('question');
-            $table->string('options');
+            $table->string('question',1000);
+            $table->string('options',1000);
             $table->string('question_es')->nullable();
             $table->boolean('status')->default(true);
             $table->timestamps();
