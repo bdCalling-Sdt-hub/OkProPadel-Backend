@@ -281,13 +281,9 @@ class HomeController extends Controller
                 ->get();
 
             if ($clubs->isEmpty()) {
-                $distanceLimit += 10; // Increase the distance limit
+                $distanceLimit += 10;
             }
         }
-
-        // if ($clubs->isEmpty()) {
-        //     return $this->sendError("No nearby clubs found.");
-        // }
         $formattedClubs = $clubs->map(function ($club) {
             return [
                 'id' => $club->id,
@@ -343,6 +339,7 @@ class HomeController extends Controller
             $group = Group::where('match_id', $match->id)->first();
             $playerCount = $group ? $group->members()->count() : 0;
             $join = $playerCount < 8;
+
             return [
                 'id' => $match->id,
                 'mind_text' => $match->mind_text,
@@ -361,9 +358,17 @@ class HomeController extends Controller
                 ],
             ];
         });
-        return $this->sendResponse($formattedMatches, 'Matches retrieved successfully.');
+        return $this->sendResponse(
+            [
+                'matches' => $formattedMatches,
+                'auth_user' => [
+                    'id' => auth()->user()->id,
+                    'level' => auth()->user()->level,
+                ],
+            ],
+            'Matches retrieved successfully.'
+        );
     }
-
     public function clubDetails($id)
     {
         $user = Auth::user();
