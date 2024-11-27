@@ -15,9 +15,11 @@ class JoinRequestAcceptedNotification extends Notification
      * Create a new notification instance.
      */
     protected $group;
-    public function __construct($group)
+    protected $match;
+    public function __construct($group,$match)
     {
         $this->group = $group;
+        $this->match = $match;
     }
     public function via(object $notifiable): array
     {
@@ -26,7 +28,8 @@ class JoinRequestAcceptedNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            'message' => "Your request to join the group '{$this->group->name}' has been accepted.",
+            'message' => "Your request to join the '{$this->group->name}' has been accepted.",
+            'match' =>$this->match->id,
             'group_image' => $this->group->image
                             ? url('uploads/group/',$this->group->image)
                             : url('avatar/community.jpg'),

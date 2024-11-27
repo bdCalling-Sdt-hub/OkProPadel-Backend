@@ -1129,7 +1129,7 @@ class MessageController extends Controller
         }
 
         $user = User::find($request->user_id);
-        $user->notify(new JoinRequestAcceptedNotification($group));
+        $user->notify(new JoinRequestAcceptedNotification($group,$match));
 
         return $this->sendResponse([], 'Community request accepted successfully.');
     }
