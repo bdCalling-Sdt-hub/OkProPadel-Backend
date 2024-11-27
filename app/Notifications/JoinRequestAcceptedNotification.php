@@ -29,7 +29,7 @@ class JoinRequestAcceptedNotification extends Notification
     {
         return [
             'message' => "Your request to join the '{$this->group->name}' has been accepted.",
-            'match' =>$this->match->id,
+            'match_id' =>$this->match->id,
             'group_image' => $this->group->image
                             ? url('uploads/group/',$this->group->image)
                             : url('avatar/community.jpg'),
