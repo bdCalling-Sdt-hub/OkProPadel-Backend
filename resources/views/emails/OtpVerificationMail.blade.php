@@ -82,7 +82,7 @@
         <!-- Footer -->
         <div class="email-footer">
             <p>Thank you for using our service!</p>
-            <p>&copy; {{ date('Y') }} Your Company Name. All rights reserved.</p>
+            <p>&copy; {{ date('Y') }} OkProPadel. All rights reserved.</p>
         </div>
     </div>
 </body>

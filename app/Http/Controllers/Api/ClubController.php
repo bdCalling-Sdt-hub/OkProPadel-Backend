@@ -181,7 +181,6 @@ class ClubController extends Controller
             }
             if ($club->banners) {
                 $banners = json_decode($club->banners, true);
-
                 foreach ($banners as $banner) {
                     $bannerPath = public_path($banner);
                     if (file_exists($bannerPath)) {

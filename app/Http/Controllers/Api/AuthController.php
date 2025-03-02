@@ -8,6 +8,7 @@ use App\Models\User;
 use Hash;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Mail;
@@ -23,6 +24,7 @@ class AuthController extends Controller
             'facebook_id' => 'string|nullable',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
+            'image'=>'nullable|url'
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
@@ -47,10 +49,20 @@ class AuthController extends Controller
                 return $this->responseWithToken($token);
             }
         }
+        $image = null;
+            if ($request->has('image')) {
+                $imageUrl = $request->image;
+                $imageContent = Http::get($imageUrl);
+                $imageName = time() . '.jpg';
+                $imagePath = public_path('Profile' . $imageName);
+                file_put_contents($imagePath, $imageContent->body());
+                $image = $imageName;
+            }
         $user = User::create([
             'full_name' => $request->full_name,
             'email' => $request->email,
             'password' => Hash::make(Str::random(16)),
+            'image'=>$image,
             'role' => 'MEMBER',
             'google_id' => $request->google_id ?? null,
             'facebook_id' => $request->facebook_id ?? null,
@@ -312,6 +324,10 @@ class AuthController extends Controller
         $user = auth()->user();
         $image=null;
         if ($request->hasFile('image')) {
+            $oldImagePath = public_path( $user->image);
+            if ($user->image && file_exists($oldImagePath)) {
+                unlink($oldImagePath);
+            }
             $imagePath = time() . '.' . $request->image->getClientOriginalExtension();
             $request->image->move(public_path('Profile'), $imagePath);
             $image =$imagePath;
@@ -345,15 +361,22 @@ class AuthController extends Controller
         if ($validator->fails()) {
             return $this->sendError('Validation Error.', $validator->errors(), 422);
         }
+
         $user = auth()->user();
+        $oldImagePath = $user->image;
+
         if ($request->hasFile('image')) {
+            if ($oldImagePath && file_exists(public_path('Profile/' . $oldImagePath))) {
+                unlink(public_path('Profile/' . $oldImagePath));
+            }
             $imagePath = time() . '.' . $request->image->getClientOriginalExtension();
-            $request->image->move(public_path('profile'), $imagePath);
-            $image =$imagePath;
+            $request->image->move(public_path('Profile'), $imagePath);
+            $user->image = $imagePath;
         }
-        $user->image = $image ?? $user->image;
+
         $user->save();
 
         return $this->sendResponse($user, 'Profile updated successfully.');
     }
+
 }
