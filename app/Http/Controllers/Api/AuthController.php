@@ -54,7 +54,7 @@ class AuthController extends Controller
                 $imageUrl = $request->image;
                 $imageContent = Http::get($imageUrl);
                 $imageName = time() . '.jpg';
-                $imagePath = public_path('Profile' . $imageName);
+                $imagePath = public_path('Profile/' . $imageName);
                 file_put_contents($imagePath, $imageContent->body());
                 $image = $imageName;
             }

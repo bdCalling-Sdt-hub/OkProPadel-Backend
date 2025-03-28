@@ -10,7 +10,9 @@ class TrailMatchQuestion extends Model
     use HasFactory;
     protected $fillable = [
         "question",
+        "question_2",
         "options",
+        "options_2",
         "status",
         "question_es"
     ];

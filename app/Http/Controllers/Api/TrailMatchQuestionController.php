@@ -24,23 +24,18 @@ class TrailMatchQuestionController extends Controller
             return [
                 'id' => $question->id,
                 'question' => $question->question,
-                'status'=> $question->status,
-              ' question_es' =>$question->question_es,
                 'options' => json_decode($question->options, true),
+                'question_2' => $question->question_2,
+                'options_2' => json_decode($question->options_2, true),
+                'question_es' =>$question->question_es,
+                'status'=> $question->status,
                 'created_at' => $question->created_at->toDateTimeString(),
                 'updated_at' => $question->updated_at->toDateTimeString(),
             ];
         });
-
         $response = [
-            // 'tittle' => '#Question ' . $questions->currentPage().' of '.$questions->total() ,
-            // 'current_page' => $questions->currentPage(),
-            // 'total_pages' => $questions->lastPage(),
-            // 'total_questions' => $questions->total(),
-            // 'per_page' => $questions->perPage(),
             'data' => $formattedQuestions,
         ];
-
         return $this->sendResponse($response, "Questions retrieved successfully.");
     }
 
@@ -53,6 +48,12 @@ class TrailMatchQuestionController extends Controller
             "B" => "required|string|max:255",
             "C" => "required|string|max:255",
             "D" => "required|string|max:255",
+
+            "question_2" => "required|string|max:255",
+            "A_2" => "required|string|max:255",
+            "B_2" => "required|string|max:255",
+            "C_2" => "required|string|max:255",
+            "D_2" => "required|string|max:255",
         ]);
         if ($validator->fails()) {
             return $this->sendError("Validation Error", $validator->errors());
@@ -60,6 +61,7 @@ class TrailMatchQuestionController extends Controller
 
         $question = new TrailMatchQuestion();
         $question->question = $request->question;
+        $question->question_2 = $request->question_2;
 
         $options = [
             'A' => [
@@ -79,17 +81,37 @@ class TrailMatchQuestionController extends Controller
                 'option' => $request->D,
             ],
         ];
-
+        $options_2 = [
+            'A_2' => [
+                'value' => 1,
+                'option' => $request->A_2,
+            ],
+            'B_2' => [
+                'value' => 2,
+                'option' => $request->B_2,
+            ],
+            'C_2' => [
+                'value' => 3,
+                'option' => $request->C_2,
+            ],
+            'D_2' => [
+                'value' => 4,
+                'option' => $request->D_2,
+            ],
+        ];
         $question->options = json_encode($options);
-        $question->status= true;
+        $question->options_2 = json_encode($options_2);
         $question->question_es = $request->question_es;
+        $question->status= true;
         $question->save();
         return $this->sendResponse([
             'id' => $question->id,
             'question' => $question->question,
-            'status' => $question->status,
-            'question_es' =>$question->question_es,
             'options' => json_decode($question->options),
+            'question_2' => $question->question_2,
+            'options_2' => json_decode($question->options_2),
+            'question_es' =>$question->question_es,
+            'status' => $question->status,
             'created_at' => $question->created_at,
             'updated_at' => $question->updated_at,
         ], "Question created successfully.");
@@ -103,6 +125,11 @@ class TrailMatchQuestionController extends Controller
             "B" => "required|string|max:255",
             "C" => "required|string|max:255",
             "D" => "required|string|max:255",
+            "question_2" => "required|string|max:255",
+            "A_2" => "required|string|max:255",
+            "B_2" => "required|string|max:255",
+            "C_2" => "required|string|max:255",
+            "D_2" => "required|string|max:255",
             "status"=> "boolean",
         ]);
 
@@ -133,17 +160,37 @@ class TrailMatchQuestionController extends Controller
 
             $question->options = json_encode($options);
         }
+        if ($request->has('A_2') || $request->has('B_2') || $request->has('C_2') || $request->has('D_2')) {
+            $options_2 = json_decode($question->options_2, true);
+
+            if ($request->has('A_2')) {
+                $options['A_2']['option'] = $request->A_2;
+            }
+            if ($request->has('B_2')) {
+                $options['B_2']['option'] = $request->B_2;
+            }
+            if ($request->has('C_2')) {
+                $options['C_2']['option'] = $request->C_2;
+            }
+            if ($request->has('D_2')) {
+                $options['D_2']['option'] = $request->D_2;
+            }
+            $question->options_2 = json_encode($options_2);
+        }
         $question->question = $request->question;
-        $question->status = $request->status;
+        $question->question_2 = $request->question_2;
         $question->question_es = $request->question_es;
+        $question->status = $request->status;
         $question->save();
 
         return $this->sendResponse([
             'id' => $question->id,
             'question' => $question->question,
-            'status' => $question->status,
-            'question_es'=>$question->question_es,
+            'question_2' => $question->question_2,
             'options' => json_decode($question->options),
+            'options_2' => json_decode($question->options_2),
+            'question_es'=>$question->question_es,
+            'status' => $question->status,
             'created_at' => $question->created_at,
             'updated_at' => $question->updated_at,
         ], "Question updated successfully.");

@@ -15,7 +15,9 @@ return new class extends Migration
             $table->id();
             $table->string('question',1000);
             $table->string('options',1000);
-            $table->string('question_es')->nullable();
+            $table->string('question_2',1000);
+            $table->string('options_2',1000);
+            $table->enum('question_es', ['english', 'spanish'])->default('english');
             $table->boolean('status')->default(true);
             $table->timestamps();
         });
