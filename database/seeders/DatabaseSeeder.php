@@ -21,6 +21,16 @@ class DatabaseSeeder extends Seeder
         "level" => "5",
         "level_name" => "Professional",
        ]);
+       User::create([
+        "id"=> 1,
+        "full_name"=> "User",
+        "email"=> "user@gmail.com",
+        "password"=> Hash::make("12345678"),
+        "role"=> "MEMBER",
+        "status"=> "active",
+        "level" => "5",
+        "level_name" => "Professional",
+       ]);
         $this->call(QuestionnaireSeeder::class);
     }
 }

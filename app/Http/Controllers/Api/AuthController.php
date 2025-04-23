@@ -9,9 +9,9 @@ use Hash;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Mail;
 use Illuminate\Support\Str;
 class AuthController extends Controller
 {
@@ -127,7 +127,6 @@ class AuthController extends Controller
         }
         $user = $this->createUser($request);
         $this->sendOtpEmail($user);
-
         return response()->json(['success' => 'User registered successfully. OTP sent to your email.'], 201);
     }
 
@@ -160,7 +159,6 @@ class AuthController extends Controller
             'name' => $user->full_name,
             'otp' => $otp,
         ];
-
         try {
             Mail::to($user->email)->queue(new OtpVerificationMail($emailData));
         } catch (\Exception $e) {
