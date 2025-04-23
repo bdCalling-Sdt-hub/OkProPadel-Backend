@@ -22,7 +22,7 @@ class DatabaseSeeder extends Seeder
         "level_name" => "Professional",
        ]);
        User::create([
-        "id"=> 1,
+        "id"=> 2,
         "full_name"=> "User",
         "email"=> "user@gmail.com",
         "password"=> Hash::make("12345678"),
